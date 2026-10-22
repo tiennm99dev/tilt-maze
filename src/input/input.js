@@ -7,6 +7,7 @@ import { Vector3 } from 'three';
 import { SHAKE, TILT } from '../tuning.js';
 import { createFallbackControls } from './fallback.js';
 import { createSmoother, shapeTilt } from './filter.js';
+import { screenAngle } from './sensors.js';
 import { createShakeDetector } from './shake-detector.js';
 import { calibrationFor, tiltFromUp, toScreenFrame, upFromOrientation } from './tilt-math.js';
 
@@ -52,12 +53,17 @@ export function createInput({ sensors, surface, settings, savedNeutral = null })
     },
   });
 
-  /** @returns {Vector3 | null} Latest screen-frame up vector. */
+  /**
+   * The screen angle is read now, not when the reading arrived: beta and
+   * gamma are device-frame values, and a reading from before a rotation must
+   * not be paired with the old angle.
+   * @returns {Vector3 | null} Latest screen-frame up vector.
+   */
   const currentUp = () => {
     const reading = sensors.latest();
     if (!reading) return null;
     upFromOrientation(reading.beta, reading.gamma, device);
-    return toScreenFrame(device, reading.screenAngle, TILT.screenAngleSign, screenUp);
+    return toScreenFrame(device, screenAngle(), TILT.screenAngleSign, screenUp);
   };
 
   const offOrientation = sensors.onOrientation(() => {

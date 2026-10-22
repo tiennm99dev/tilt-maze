@@ -16,7 +16,6 @@
  * @typedef {object} OrientationReading
  * @property {number} beta
  * @property {number} gamma
- * @property {number} screenAngle Degrees.
  */
 
 /** @returns {number} Current screen orientation angle in degrees. */
@@ -56,7 +55,7 @@ export function createSensors() {
   /** @param {DeviceOrientationEvent} event */
   const onOrientation = (event) => {
     if (event.beta === null || event.gamma === null) return;
-    latest = { beta: event.beta, gamma: event.gamma, screenAngle: screenAngle() };
+    latest = { beta: event.beta, gamma: event.gamma };
     live = true;
     for (const fn of orientationListeners) fn(latest);
   };
@@ -69,16 +68,16 @@ export function createSensors() {
     /**
      * Must run synchronously inside a click handler: iOS rejects the
      * permission request once anything has been awaited.
-     * @returns {Promise<boolean>} False only when a permission was refused.
+     * Only orientation decides the result: tilt is the game, and motion only
+     * powers the shake, so a refused motion prompt must not force drag mode.
+     * @returns {Promise<boolean>} False only when orientation was refused.
      */
     requestAccess() {
-      const pending = [
-        requestFrom(globalThis.DeviceOrientationEvent),
-        requestFrom(globalThis.DeviceMotionEvent),
-      ].filter((p) => p !== null);
+      const orientation = requestFrom(globalThis.DeviceOrientationEvent);
+      // Requested in the same gesture; a refusal just disables the shake.
+      requestFrom(globalThis.DeviceMotionEvent);
       this.start();
-      if (pending.length === 0) return Promise.resolve(true);
-      return Promise.all(pending).then((results) => results.every(Boolean));
+      return orientation ?? Promise.resolve(true);
     },
 
     /** Attaches the listeners once. */
@@ -144,7 +143,8 @@ export function createSensors() {
 /**
  * Keeps the screen awake while playing: nobody touches the screen during
  * tilt play, so the phone would otherwise dim. Re-acquires the lock when the
- * page becomes visible again, since the browser drops it on hide.
+ * page becomes visible again, since the browser drops it on hide. Menus and
+ * pause call disable() so the phone can dim and sleep as usual.
  */
 export function createWakeLock() {
   /** @type {WakeLockSentinel | null} */

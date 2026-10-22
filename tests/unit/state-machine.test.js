@@ -10,6 +10,14 @@ describe('createStateMachine', () => {
     }
   });
 
+  it('pauses during a fall and resumes into the same fall', () => {
+    const fsm = createStateMachine();
+    for (const s of /** @type {const} */ (['permission', 'calibrating', 'ready', 'playing', 'falling', 'paused', 'calibrating', 'falling', 'paused', 'falling', 'playing'])) {
+      fsm.go(s);
+    }
+    expect(fsm.state).toBe('playing');
+  });
+
   it('rejects transitions that are not allowed', () => {
     const fsm = createStateMachine();
     expect(fsm.can('playing')).toBe(false);

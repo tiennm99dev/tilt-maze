@@ -15,11 +15,11 @@ export const TRANSITIONS = Object.freeze({
   levelSelect: ['title', 'permission'],
   settings: ['title', 'paused'],
   permission: ['calibrating', 'title'],
-  calibrating: ['ready', 'playing'],
+  calibrating: ['ready', 'playing', 'falling'],
   ready: ['playing', 'paused', 'calibrating'],
   playing: ['paused', 'falling', 'won', 'calibrating'],
   falling: ['playing', 'paused'],
-  paused: ['playing', 'ready', 'calibrating', 'settings', 'levelSelect', 'title'],
+  paused: ['playing', 'falling', 'ready', 'calibrating', 'settings', 'levelSelect', 'title'],
   won: ['ready', 'levelSelect', 'title'],
 });
 

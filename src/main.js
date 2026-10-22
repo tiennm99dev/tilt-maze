@@ -115,7 +115,6 @@ function startFromTap(choice) {
   if (!fsm.can('permission')) return;
   const access = sensors.requestAccess();
   sfx.unlock();
-  wakeLock.enable();
   screens.titleError(null);
   fsm.go('permission');
   run(choice, access).catch((error) => {
@@ -166,7 +165,7 @@ async function calibrate(g) {
   storage.update({ calibration: neutral });
 }
 
-/** Recalibrate from the HUD or after the screen rotates. */
+/** Recalibrate from the HUD. */
 async function recalibrate() {
   const from = fsm.state;
   if (!game || !sensorsLive || (from !== 'ready' && from !== 'playing')) {
@@ -183,7 +182,7 @@ async function recalibrate() {
 function pause() {
   const s = fsm.state;
   if (s !== 'ready' && s !== 'playing' && s !== 'falling') return;
-  pausedFrom = s === 'ready' ? 'ready' : 'playing';
+  pausedFrom = s;
   sfx.stopRoll();
   fsm.go('paused');
 }
@@ -192,7 +191,6 @@ function pause() {
 async function resume() {
   if (fsm.state !== 'paused' || !game) return;
   sfx.resume();
-  wakeLock.enable();
   if (sensorsLive) {
     fsm.go('calibrating');
     await calibrate(game);
@@ -270,6 +268,9 @@ const hud = createHud({
 });
 hud.setMuted(storage.get().muted);
 
+/** States that keep the screen awake; everywhere else the phone may dim. */
+const AWAKE_STATES = new Set(['permission', 'calibrating', 'ready', 'playing', 'falling']);
+
 /** @type {Partial<Record<GameState, import('./ui/screens.js').ScreenName>>} */
 const SCREEN_FOR_STATE = {
   title: 'title',
@@ -282,6 +283,10 @@ const SCREEN_FOR_STATE = {
 };
 
 fsm.onChange((to) => {
+  // The tap into 'permission' runs synchronously inside the click, so the
+  // first wake lock request still has its user gesture.
+  if (AWAKE_STATES.has(to)) wakeLock.enable();
+  else wakeLock.disable();
   screens.show(SCREEN_FOR_STATE[to] ?? null);
   hud.setVisible(['ready', 'playing', 'falling', 'paused', 'calibrating'].includes(to));
   if (to === 'ready') {
@@ -306,8 +311,15 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') pause();
 });
 
+/**
+ * The neutral pose is stored in the screen frame, so it stays valid when the
+ * screen rotates: people hold the phone the same way relative to the screen
+ * in either orientation. A rotation during play is usually the OS reacting
+ * to a hard tilt, which also reframes the board under the ball, so pause and
+ * let the resume tap recalibrate from a pose the player chose.
+ */
 const onRotate = () => {
-  recalibrate().catch((error) => console.error(error));
+  if (fsm.state === 'playing' || fsm.state === 'falling') pause();
 };
 if (screen.orientation) {
   screen.orientation.addEventListener('change', onRotate);
