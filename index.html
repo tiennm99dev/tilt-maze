@@ -13,9 +13,17 @@
 
     <div id="hud" class="hud" hidden>
       <div class="hud-stats">
-        <span id="hud-level" class="pill">Level 1</span>
-        <span class="pill"><span class="pill-label">Time</span> <span id="hud-time">0:00.0</span></span>
-        <span class="pill"><span class="pill-label">Falls</span> <span id="hud-falls">0</span></span>
+        <span class="pill"
+          ><span id="hud-level" class="level-long">Level 1</span
+          ><span id="hud-level-short" class="level-short" aria-hidden="true">Lv 1</span></span
+        >
+        <span class="pill pill-stats"
+          ><span class="pill-label">Time</span> <span id="hud-time">0:00.0</span
+          ><span id="hud-penalty" class="penalty" aria-hidden="true"></span
+          ><span id="hud-falls-group" class="falls"
+            ><span class="pill-label">Falls</span> <span id="hud-falls">0</span></span
+          ></span
+        >
       </div>
       <div class="hud-buttons">
         <div id="tilt-indicator" class="tilt-indicator" data-pitch="0" data-roll="0" title="Board tilt">
@@ -30,32 +38,32 @@
     <div id="hint" class="hint" hidden></div>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
-    <section id="screen-title" class="screen">
+    <section id="screen-title" class="screen" role="dialog" aria-modal="true" aria-labelledby="title-heading">
       <div class="panel">
-        <h1>Tilt Maze</h1>
+        <h1 id="title-heading">Tilt Maze</h1>
         <p class="tagline">Tilt your phone to roll the marble to the green ring. Shake hard and it jumps &mdash; maybe right off the board.</p>
-        <button id="btn-play" class="btn primary" type="button">Tap to play</button>
+        <button id="btn-play" class="btn primary" type="button">Play</button>
         <div class="row">
           <button id="btn-levels" class="btn" type="button">Levels</button>
           <button id="btn-endless" class="btn" type="button">Endless</button>
           <button id="btn-settings" class="btn" type="button">Settings</button>
         </div>
         <p id="title-error" class="error" hidden></p>
-        <p class="small">No phone? Use the arrow keys or WASD, Space to jump, or drag the board.</p>
+        <p class="small">No phone? Use the arrow keys or WASD, Space to jump, Esc to pause, or drag the board.</p>
       </div>
     </section>
 
-    <section id="screen-levelSelect" class="screen" hidden>
+    <section id="screen-levelSelect" class="screen" role="dialog" aria-modal="true" aria-labelledby="levels-heading" hidden>
       <div class="panel">
-        <h2>Levels</h2>
+        <h2 id="levels-heading">Levels</h2>
         <div id="level-grid" class="level-grid"></div>
         <button id="btn-levels-back" class="btn" type="button">Back</button>
       </div>
     </section>
 
-    <section id="screen-settings" class="screen" hidden>
+    <section id="screen-settings" class="screen" role="dialog" aria-modal="true" aria-labelledby="settings-heading" hidden>
       <div class="panel">
-        <h2>Settings</h2>
+        <h2 id="settings-heading">Settings</h2>
         <label class="field">
           <span>Sensitivity <output id="sensitivity-value">1.0&times;</output></span>
           <input id="sensitivity" type="range" min="0.5" max="2" step="0.1" value="1" />
@@ -68,16 +76,16 @@
       </div>
     </section>
 
-    <section id="screen-loading" class="screen" hidden>
+    <section id="screen-loading" class="screen" role="dialog" aria-modal="true" aria-labelledby="loading-text" hidden>
       <div class="panel">
         <div class="spinner" aria-hidden="true"></div>
         <p id="loading-text">Loading&hellip;</p>
       </div>
     </section>
 
-    <section id="screen-paused" class="screen" hidden>
+    <section id="screen-paused" class="screen" role="dialog" aria-modal="true" aria-labelledby="paused-heading" hidden>
       <div class="panel">
-        <h2>Paused</h2>
+        <h2 id="paused-heading">Paused</h2>
         <button id="btn-resume" class="btn primary" type="button">Resume</button>
         <div class="row">
           <button id="btn-retry" class="btn" type="button">Retry</button>
@@ -87,7 +95,15 @@
       </div>
     </section>
 
-    <section id="screen-won" class="screen" hidden>
+    <section
+      id="screen-won"
+      class="screen"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="win-title"
+      aria-describedby="win-time win-details win-best"
+      hidden
+    >
       <div class="panel">
         <h2 id="win-title">Level complete</h2>
         <p class="win-time" id="win-time">0:00.0</p>

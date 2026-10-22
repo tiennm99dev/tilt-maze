@@ -23,10 +23,9 @@ import { createFixedStepper } from './loop.js';
  * @property {(result: {timeMs: number, falls: number}) => void} onWin
  * @property {(timeMs: number, falls: number, tilt: {pitch: number, roll: number}) => void} onTick
  * @property {() => void} onStart First input of a level: the timer starts.
+ * @property {(falls: number) => void} onFall The ball fell off and is back at
+ *   the start, with the fall penalty added to the time.
  */
-
-/** Starts the physics download early; safe to call more than once. */
-export const preload = () => loadPhysics();
 
 /**
  * @param {object} options
@@ -53,6 +52,8 @@ export async function createGame({ canvas, sensors, fsm, sfx, settings, savedNeu
 /** States in which the board changes from frame to frame. */
 const LIVE_STATES = new Set(['ready', 'playing', 'falling']);
 
+const reducedMotion = () => globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
 /**
  * @param {object} options
  * @param {Awaited<ReturnType<typeof loadPhysics>>} options.RAPIER
@@ -66,6 +67,12 @@ const LIVE_STATES = new Set(['ready', 'playing', 'falling']);
  */
 function startGame({ RAPIER, stage, sensors, fsm, sfx, settings, savedNeutral, callbacks }) {
   const input = createInput({ sensors, surface: stage.renderer.domElement, settings, savedNeutral });
+  // Game keys only while a level is on screen; menus keep Space and arrows
+  // for focus and button presses.
+  /** @param {import('./state-machine.js').GameState} state */
+  const syncKeys = (state) => input.setKeysEnabled(state === 'ready' || state === 'playing' || state === 'falling');
+  syncKeys(fsm.state);
+  const offState = fsm.onChange(syncKeys);
   const stepper = createFixedStepper({
     stepSeconds: PHYSICS.stepSeconds,
     maxSteps: PHYSICS.maxStepsPerFrame,
@@ -86,6 +93,13 @@ function startGame({ RAPIER, stage, sensors, fsm, sfx, settings, savedNeutral, c
   const gravity = new Vector3();
   let lastFrame = performance.now();
   let rafId = 0;
+  /**
+   * A win waiting for its screen: the result is frozen at the goal and the
+   * board keeps drawing the goal flash until `at + RULES.winDelayMs`.
+   * @type {{timeMs: number, falls: number, at: number, reducedMotion: boolean} | null}
+   */
+  let pendingWin = null;
+  const goalPos = new Vector3();
 
   const resetBall = () => {
     if (!world) return;
@@ -100,6 +114,7 @@ function startGame({ RAPIER, stage, sensors, fsm, sfx, settings, savedNeutral, c
   const load = (level) => {
     world?.dispose();
     meshes?.dispose();
+    pendingWin = null;
     layout = buildLayout(level, BOARD);
     world = new PhysicsWorld(RAPIER, layout, { radius: BOARD.ballRadius, start: layout.start });
     meshes = createBoardMeshes(layout, BOARD.ballRadius, BOARD.goalRadius);
@@ -139,14 +154,30 @@ function startGame({ RAPIER, stage, sensors, fsm, sfx, settings, savedNeutral, c
     sfx.shake();
   };
 
+  /**
+   * First fall or win seen in this frame's steps. Judging after every step,
+   * not once per frame, keeps a fast ball on a slow frame from skipping
+   * across the goal, and judges a win before a later fall.
+   * @type {'falling' | 'won' | null}
+   */
+  let event = null;
+  let stepsTaken = 0;
+
   const stepPhysics = () => {
-    if (!world) return;
+    // After a win the rest of the frame's steps are dropped.
+    if (!world || event === 'won') return;
     const p = world.position();
     prevPos.set(p.x, p.y, p.z);
     const deltaV = world.step();
-    if (deltaV > PHYSICS.wallHitMinDeltaV && fsm.state === 'playing') sfx.hit(deltaV);
+    stepsTaken += 1;
+    const playing = fsm.state === 'playing';
+    if (deltaV > PHYSICS.wallHitMinDeltaV && playing) sfx.hit(deltaV);
     const q = world.position();
     currPos.set(q.x, q.y, q.z);
+    if (playing && !event) {
+      if (currPos.y < PHYSICS.fallingY) event = 'falling';
+      else if (reachedGoal()) event = 'won';
+    }
   };
 
   /** @param {number} now */
@@ -168,13 +199,14 @@ function startGame({ RAPIER, stage, sensors, fsm, sfx, settings, savedNeutral, c
       boardGravity(board, PHYSICS.gravity, gravity);
       world.setGravity(gravity);
       applyShake(board);
-      const advanced = stepper.advance(dt, stepPhysics);
-      alpha = advanced.alpha;
+      event = null;
+      stepsTaken = 0;
+      alpha = stepper.advance(dt, stepPhysics).alpha;
       // Charge only simulated time, so a stalling device is not penalised
       // for frames the stepper had to drop.
-      timeMs += advanced.steps * PHYSICS.stepSeconds * 1000;
+      timeMs += stepsTaken * PHYSICS.stepSeconds * 1000;
 
-      if (state === 'playing' && currPos.y < PHYSICS.fallingY) {
+      if (event === 'falling') {
         fsm.go('falling');
         sfx.fall();
       } else if (state === 'falling' && currPos.y < PHYSICS.killY) {
@@ -182,11 +214,12 @@ function startGame({ RAPIER, stage, sensors, fsm, sfx, settings, savedNeutral, c
         timeMs += RULES.fallPenaltyMs;
         resetBall();
         fsm.go('playing');
-      } else if (state === 'playing' && reachedGoal()) {
+        callbacks.onFall(falls);
+      } else if (event === 'won') {
         fsm.go('won');
         sfx.stopRoll();
         sfx.win();
-        callbacks.onWin({ timeMs, falls });
+        pendingWin = { timeMs, falls, at: now, reducedMotion: reducedMotion() };
       }
       const v = world.velocity();
       sfx.roll(Math.hypot(v.x, v.z), state === 'playing' && currPos.y > -0.05 && currPos.y < BOARD.ballRadius * 1.5);
@@ -199,16 +232,31 @@ function startGame({ RAPIER, stage, sensors, fsm, sfx, settings, savedNeutral, c
         boardQuaternion(board, boardQ);
         meshes.group.quaternion.copy(boardQ);
       }
-      meshes.ball.position.lerpVectors(prevPos, currPos, alpha);
-      const r = world.rotation();
-      meshes.ball.quaternion.set(r.x, r.y, r.z, r.w);
-      meshes.animate(now / 1000);
+      if (pendingWin && layout) {
+        // Roll the ball into the middle of the goal while it flashes.
+        if (!pendingWin.reducedMotion) {
+          goalPos.set(layout.goal.x, BOARD.ballRadius, layout.goal.z);
+          meshes.ball.position.lerp(goalPos, 1 - Math.exp(-dt * 12));
+        }
+        meshes.celebrate(Math.min(1, (now - pendingWin.at) / RULES.winDelayMs), pendingWin.reducedMotion);
+      } else {
+        meshes.ball.position.lerpVectors(prevPos, currPos, alpha);
+        const r = world.rotation();
+        meshes.ball.quaternion.set(r.x, r.y, r.z, r.w);
+        meshes.animate(now / 1000);
+      }
     }
 
     callbacks.onTick(timeMs, falls, board);
     // Menus, pause and the win screen show a still board: the canvas keeps
     // the last frame, and the stage redraws itself on resize.
-    if (LIVE_STATES.has(state)) stage.render();
+    if (LIVE_STATES.has(state) || pendingWin) stage.render();
+    if (pendingWin && now - pendingWin.at >= RULES.winDelayMs) {
+      const { timeMs: wonMs, falls: wonFalls } = pendingWin;
+      pendingWin = null;
+      // Something else (a level load or retry) may have left the win.
+      if (fsm.state === 'won') callbacks.onWin({ timeMs: wonMs, falls: wonFalls });
+    }
   };
 
   rafId = requestAnimationFrame((now) => {
@@ -220,6 +268,7 @@ function startGame({ RAPIER, stage, sensors, fsm, sfx, settings, savedNeutral, c
     load,
     /** Restarts the current level: ball at the start, timer and falls cleared. */
     retry() {
+      pendingWin = null;
       timeMs = 0;
       falls = 0;
       input.reset();
@@ -239,6 +288,7 @@ function startGame({ RAPIER, stage, sensors, fsm, sfx, settings, savedNeutral, c
     },
     dispose() {
       cancelAnimationFrame(rafId);
+      offState();
       input.dispose();
       world?.dispose();
       meshes?.dispose();

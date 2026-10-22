@@ -75,23 +75,24 @@ export function createBoardMeshes(layout, ballRadius, goalRadius) {
     group.add(wellMesh);
   }
 
+  // Markers skip tone mapping and lighting so they keep their saturated
+  // colour: ACES tone mapping washed a lit, emissive ring out to near white.
   const marker = (/** @type {number} */ color, /** @type {{x: number, z: number}} */ at, /** @type {number} */ r) => {
     const ring = new Mesh(
       own(new RingGeometry(r * 0.72, r, 40)),
-      own(new MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.9, roughness: 0.4 })),
+      own(new MeshBasicMaterial({ color, toneMapped: false })),
     );
     ring.rotation.x = -Math.PI / 2;
     ring.position.set(at.x, 0.005, at.z);
-    ring.receiveShadow = true;
     group.add(ring);
     return ring;
   };
   marker(RENDER.colors.start, layout.start, goalRadius * 0.8);
   const goalRing = marker(RENDER.colors.goal, layout.goal, goalRadius);
-  const goalGlow = new Mesh(
-    own(new CylinderGeometry(goalRadius * 0.7, goalRadius * 0.7, 0.01, 32)),
-    own(new MeshBasicMaterial({ color: RENDER.colors.goal, transparent: true, opacity: 0.35 })),
+  const glowMaterial = own(
+    new MeshBasicMaterial({ color: RENDER.colors.goal, transparent: true, opacity: 0.5, toneMapped: false }),
   );
+  const goalGlow = new Mesh(own(new CylinderGeometry(goalRadius * 0.7, goalRadius * 0.7, 0.01, 32)), glowMaterial);
   goalGlow.position.set(layout.goal.x, 0.004, layout.goal.z);
   group.add(goalGlow);
 
@@ -107,9 +108,22 @@ export function createBoardMeshes(layout, ballRadius, goalRadius) {
     ball,
     /** @param {number} timeSeconds */
     animate(timeSeconds) {
-      const pulse = 0.6 + 0.4 * Math.sin(timeSeconds * 4);
-      /** @type {MeshStandardMaterial} */ (goalRing.material).emissiveIntensity = 0.5 + pulse;
+      const pulse = 0.5 + 0.5 * Math.sin(timeSeconds * 4);
+      goalRing.scale.setScalar(1 + 0.08 * pulse);
       goalGlow.scale.setScalar(0.85 + 0.15 * pulse);
+      glowMaterial.opacity = 0.35 + 0.25 * pulse;
+    },
+    /**
+     * Goal flash after a win, in place of the idle pulse.
+     * @param {number} progress 0 at the goal, 1 when the win screen opens.
+     * @param {boolean} reducedMotion Flash the glow only; nothing grows.
+     */
+    celebrate(progress, reducedMotion) {
+      const flash = 0.5 + 0.5 * Math.cos(progress * Math.PI * 6);
+      glowMaterial.opacity = 0.4 + 0.6 * flash;
+      const grow = reducedMotion ? 1 : 1 + 0.5 * Math.sin(progress * Math.PI);
+      goalRing.scale.setScalar(grow);
+      goalGlow.scale.setScalar(grow);
     },
     dispose() {
       group.removeFromParent();

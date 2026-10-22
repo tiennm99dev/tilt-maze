@@ -16,7 +16,8 @@ import {
   WebGLRenderer,
 } from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { RENDER } from '../tuning.js';
+import { BOARD, RENDER, TILT } from '../tuning.js';
+import { fitDistance } from './framing.js';
 
 const DEG = Math.PI / 180;
 
@@ -24,7 +25,9 @@ const DEG = Math.PI / 180;
  * @param {HTMLCanvasElement} canvas
  */
 export function createStage(canvas) {
-  const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  // Browser default power preference: a few draw calls do not need the
+  // discrete GPU of a dual-GPU laptop.
+  const renderer = new WebGLRenderer({ canvas, antialias: true });
   const pixelRatio = () => Math.min(window.devicePixelRatio || 1, RENDER.maxPixelRatio);
   renderer.setPixelRatio(pixelRatio());
   renderer.outputColorSpace = SRGBColorSpace;
@@ -35,12 +38,21 @@ export function createStage(canvas) {
   const scene = new Scene();
   scene.background = new Color(RENDER.colors.background);
 
-  // A small generated room gives the metal ball something to reflect.
-  const pmrem = new PMREMGenerator(renderer);
-  const envTarget = pmrem.fromScene(new RoomEnvironment(), 0.04);
+  /**
+   * A small generated room gives the metal ball something to reflect. The
+   * room and the generator are freed at once; only the target is kept.
+   */
+  const buildEnv = () => {
+    const pmrem = new PMREMGenerator(renderer);
+    const room = new RoomEnvironment();
+    const target = pmrem.fromScene(room, 0.04);
+    room.dispose();
+    pmrem.dispose();
+    return target;
+  };
+  let envTarget = buildEnv();
   scene.environment = envTarget.texture;
   scene.environmentIntensity = 0.35;
-  pmrem.dispose();
 
   const camera = new PerspectiveCamera(RENDER.fovDeg, 1, 0.1, 200);
 
@@ -61,10 +73,27 @@ export function createStage(canvas) {
     const h = Math.max(1, canvas.clientHeight);
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
-    const half = (boardSize / 2) * RENDER.framingMargin;
-    const tanV = Math.tan((RENDER.fovDeg * DEG) / 2);
-    const tanH = tanV * camera.aspect;
-    const distance = Math.max(half / tanV, half / tanH) + half * 0.35;
+    let distance;
+    if (camera.aspect < 1) {
+      // Portrait: the width limits the board, so fit the fully tilted board
+      // to the width exactly and keep it clear of the HUD and hint rows.
+      distance = fitDistance({
+        size: boardSize,
+        top: BOARD.innerWallHeight,
+        bottom: BOARD.floorThickness,
+        aspect: camera.aspect,
+        fovDeg: RENDER.fovDeg,
+        leanDeg: RENDER.cameraLeanDeg,
+        tiltDeg: TILT.boardMaxDeg,
+        maxX: RENDER.portraitFitNdc,
+        maxY: Math.min(RENDER.portraitFitNdc, 1 - (2 * RENDER.hudReservePx) / h),
+      });
+    } else {
+      const half = (boardSize / 2) * RENDER.framingMargin;
+      const tanV = Math.tan((RENDER.fovDeg * DEG) / 2);
+      const tanH = tanV * camera.aspect;
+      distance = Math.max(half / tanV, half / tanH) + half * 0.35;
+    }
     const lean = RENDER.cameraLeanDeg * DEG;
     camera.position.set(0, distance * Math.cos(lean), distance * Math.sin(lean));
     camera.lookAt(0, 0, 0);
@@ -105,6 +134,18 @@ export function createStage(canvas) {
   observer.observe(canvas);
   setBoardSize(boardSize);
 
+  // Phones drop the WebGL context of a backgrounded tab. three rebuilds its
+  // own state on restore but not the contents of render targets, so the
+  // reflections are rebuilt here, and the canvas is redrawn because the
+  // game loop is idle behind menus and the pause screen.
+  const onRestored = () => {
+    envTarget.dispose();
+    envTarget = buildEnv();
+    scene.environment = envTarget.texture;
+    render();
+  };
+  canvas.addEventListener('webglcontextrestored', onRestored);
+
   return {
     renderer,
     scene,
@@ -113,6 +154,7 @@ export function createStage(canvas) {
     render,
     dispose() {
       observer.disconnect();
+      canvas.removeEventListener('webglcontextrestored', onRestored);
       envTarget.dispose();
       renderer.dispose();
     },

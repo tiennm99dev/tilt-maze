@@ -15,8 +15,11 @@ import { byId, formatTime } from './dom.js';
 export function createHud(actions) {
   const root = byId('hud');
   const level = byId('hud-level');
+  const levelShort = byId('hud-level-short');
   const time = byId('hud-time');
   const falls = byId('hud-falls');
+  const fallsGroup = byId('hud-falls-group');
+  const penalty = byId('hud-penalty');
   const indicator = byId('tilt-indicator');
   const dot = /** @type {HTMLElement} */ (indicator.querySelector('.tilt-dot'));
   const mute = byId('btn-mute');
@@ -34,9 +37,28 @@ export function createHud(actions) {
     setVisible(visible) {
       root.hidden = !visible;
     },
+    /** @param {boolean} inert True while a screen covers the HUD. */
+    setInert(inert) {
+      root.inert = inert;
+    },
+    /**
+     * Floats the fall penalty by the time and highlights the falls count.
+     * @param {string} text
+     */
+    flashPenalty(text) {
+      penalty.textContent = text;
+      for (const el of [penalty, fallsGroup]) {
+        el.classList.remove('flash');
+        // Reading layout restarts the CSS animation on a quick second fall.
+        void el.offsetWidth;
+        el.classList.add('flash');
+      }
+    },
     /** @param {string} label */
     setLevel(label) {
       level.textContent = label;
+      // Narrow screens show the short form; screen readers get the full one.
+      levelShort.textContent = label.replace(/^Level /, 'Lv ').replace(/^Endless /, '∞ ');
     },
     /** @param {boolean} muted */
     setMuted(muted) {

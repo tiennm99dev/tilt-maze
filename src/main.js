@@ -7,6 +7,7 @@
 import './styles.css';
 import { createSfx } from './audio/sfx.js';
 import { createStateMachine } from './game/state-machine.js';
+import { isEditable } from './input/fallback.js';
 import { createSensors, createWakeLock } from './input/sensors.js';
 import { campaignLevel, endlessLevel } from './level/levels.js';
 import { createStorage } from './storage.js';
@@ -37,6 +38,13 @@ const loadGameModule = () => {
   });
   return gameModule;
 };
+/**
+ * Rapier is a dynamic import inside the game chunk; asking for it here starts
+ * its download alongside that chunk instead of after it has run. The game's
+ * own `loadPhysics()` call then reuses the same promise.
+ */
+const loadPhysicsEarly = () => import('./physics/world.js').then((m) => m.loadPhysics());
+const loadEngine = () => Promise.all([loadGameModule(), loadPhysicsEarly()]).then(([mod]) => mod);
 
 /** @type {import('./game/game.js').Game | null} */
 let game = null;
@@ -49,12 +57,22 @@ let sensorsLive = false;
 let pausedFrom = 'playing';
 /** @type {GameState} */
 let settingsReturn = 'title';
+/**
+ * Counts page hides and screen rotations, so a calibration can tell the
+ * phone was put away or turned mid-wait.
+ */
+let interruptions = 0;
 
-/** @param {LevelChoice} choice */
-const levelLabel = (choice) => (choice === 'endless' ? 'Endless' : `Level ${choice}`);
+/**
+ * Endless shows its seed, so a maze someone reports can be rebuilt with
+ * `endlessLevel(seed)`.
+ * @param {import('./level/levels.js').Level} level
+ */
+const levelLabel = (level) =>
+  level.id === 'endless' ? `Endless #${(level.seed >>> 0).toString(16)}` : `Level ${level.id}`;
 
 const ensureGame = () => {
-  gamePromise ??= loadGameModule()
+  gamePromise ??= loadEngine()
     .then(({ createGame }) =>
       createGame({
         canvas,
@@ -66,7 +84,7 @@ const ensureGame = () => {
           return { sensitivity: s.sensitivity, invert: s.invert };
         },
         savedNeutral: storage.get().calibration,
-        callbacks: { onWin, onTick, onStart },
+        callbacks: { onWin, onTick, onStart, onFall },
       }),
     )
     .then((g) => (game = g))
@@ -91,7 +109,16 @@ function onStart() {
   hud.setHint(null);
 }
 
-/** @param {{timeMs: number, falls: number}} result */
+/** A fall: show what it cost, since the ball is already back at the start. */
+function onFall() {
+  hud.flashPenalty(`+${RULES.fallPenaltyMs / 1000}s`);
+}
+
+/**
+ * Called after the goal flash; the 'won' state began when the ball reached
+ * the goal, so the screen opens here rather than on the state change.
+ * @param {{timeMs: number, falls: number}} result
+ */
 function onWin({ timeMs, falls }) {
   if (!currentLevel) return;
   const id = currentLevel.id;
@@ -103,7 +130,10 @@ function onWin({ timeMs, falls }) {
     bestMs: best ?? null,
     newBest,
     hasNext: id === 'endless' || id < RULES.levelCount,
+    nextLabel: id === 'endless' ? 'New maze' : 'Next level',
   });
+  screens.show('won');
+  hud.setInert(true);
 }
 
 /**
@@ -150,19 +180,31 @@ async function run(choice, access) {
   g.setSensorMode(sensorsLive);
   currentLevel = choice === 'endless' ? endlessLevel() : campaignLevel(choice);
   g.load(currentLevel);
-  hud.setLevel(levelLabel(choice));
+  hud.setLevel(levelLabel(currentLevel));
   fsm.go('calibrating');
   await calibrate(g);
   g.resetClock();
   fsm.go('ready');
 }
 
-/** @param {import('./game/game.js').Game} g */
+/**
+ * @param {import('./game/game.js').Game} g
+ * @returns {Promise<boolean>} False when the page was hidden or the screen
+ *   rotated during the wait: the readings are not a pose the player chose,
+ *   so it is not saved and the caller pauses instead of handing back a live
+ *   board.
+ */
 async function calibrate(g) {
-  if (!sensorsLive) return;
+  if (!sensorsLive) return true;
   screens.loading('Hold your phone the way you want to play…');
+  const before = interruptions;
+  // Sample once the prompt can be read and the tapping thumb has lifted, so
+  // the phone is steady in the pose the player chose.
+  await new Promise((resolve) => setTimeout(resolve, TILT.calibrationLeadMs));
   const neutral = await g.calibrate();
+  if (interruptions !== before || document.visibilityState === 'hidden') return false;
   storage.update({ calibration: neutral });
+  return true;
 }
 
 /** Recalibrate from the HUD. */
@@ -173,9 +215,16 @@ async function recalibrate() {
     return;
   }
   fsm.go('calibrating');
-  await calibrate(game);
+  const ok = await calibrate(game);
   game.resetClock();
-  if (fsm.state === 'calibrating') fsm.go(from === 'playing' ? 'playing' : 'ready');
+  if (fsm.state !== 'calibrating') return;
+  const to = from === 'playing' ? 'playing' : 'ready';
+  if (ok) {
+    fsm.go(to);
+  } else {
+    pausedFrom = to;
+    fsm.go('paused');
+  }
 }
 
 /** Pauses from any in-play state. */
@@ -193,7 +242,13 @@ async function resume() {
   sfx.resume();
   if (sensorsLive) {
     fsm.go('calibrating');
-    await calibrate(game);
+    const ok = await calibrate(game);
+    // Read the state afresh: it may have moved during the await.
+    if (/** @type {GameState} */ (fsm.state) !== 'calibrating') return;
+    if (!ok) {
+      fsm.go('paused');
+      return;
+    }
   }
   game.resetClock();
   fsm.go(pausedFrom);
@@ -205,7 +260,7 @@ function loadAndReady(choice) {
   currentLevel = choice === 'endless' ? endlessLevel() : campaignLevel(choice);
   game.load(currentLevel);
   game.resetClock();
-  hud.setLevel(levelLabel(choice));
+  hud.setLevel(levelLabel(currentLevel));
   fsm.go('ready');
 }
 
@@ -279,7 +334,6 @@ const SCREEN_FOR_STATE = {
   permission: 'loading',
   calibrating: 'loading',
   paused: 'paused',
-  won: 'won',
 };
 
 fsm.onChange((to) => {
@@ -287,7 +341,10 @@ fsm.onChange((to) => {
   // first wake lock request still has its user gesture.
   if (AWAKE_STATES.has(to)) wakeLock.enable();
   else wakeLock.disable();
-  screens.show(SCREEN_FOR_STATE[to] ?? null);
+  const screen = SCREEN_FOR_STATE[to] ?? null;
+  screens.show(screen);
+  // Keep Tab inside the open screen; the HUD stays visible behind pause.
+  hud.setInert(screen !== null);
   hud.setVisible(['ready', 'playing', 'falling', 'paused', 'calibrating'].includes(to));
   if (to === 'ready') {
     hud.setHint(sensorsLive ? 'Tilt your phone to start' : 'Drag or press an arrow key to start');
@@ -307,8 +364,25 @@ fsm.onChange((to) => {
   }
 });
 
+// Desktop: Escape or P pauses and resumes.
+window.addEventListener('keydown', (e) => {
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || isEditable(e.target)) return;
+  if (e.code !== 'Escape' && e.code !== 'KeyP') return;
+  const s = fsm.state;
+  if (s === 'ready' || s === 'playing' || s === 'falling') {
+    e.preventDefault();
+    pause();
+  } else if (s === 'paused') {
+    e.preventDefault();
+    resume().catch((error) => console.error(error));
+  }
+});
+
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') pause();
+  if (document.visibilityState === 'hidden') {
+    interruptions += 1;
+    pause();
+  }
 });
 
 /**
@@ -319,6 +393,7 @@ document.addEventListener('visibilitychange', () => {
  * let the resume tap recalibrate from a pose the player chose.
  */
 const onRotate = () => {
+  if (fsm.state === 'calibrating') interruptions += 1;
   if (fsm.state === 'playing' || fsm.state === 'falling') pause();
 };
 if (screen.orientation) {
@@ -333,8 +408,7 @@ screens.show('title');
 // Fetch the engine once the title has painted, so the first tap is quick.
 requestAnimationFrame(() => {
   setTimeout(() => {
-    loadGameModule()
-      .then((mod) => mod.preload())
+    loadEngine()
       .catch(() => {
         // Retried on the first tap, which reports the error.
       });

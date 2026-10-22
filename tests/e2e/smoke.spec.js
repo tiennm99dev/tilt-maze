@@ -22,7 +22,7 @@ test('boots, renders WebGL and follows device orientation', async ({ page }) => 
     }, 16);
   });
 
-  await page.getByRole('button', { name: 'Tap to play' }).click();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
   await expect(page.locator('#hint')).toHaveText('Tilt your phone to start', { timeout: 30_000 });
 
   const hasWebGl = await page.evaluate(() => {
@@ -39,9 +39,21 @@ test('boots, renders WebGL and follows device orientation', async ({ page }) => 
     const w = /** @type {Window & {fakeTilt?: {beta: number, gamma: number}}} */ (window);
     w.fakeTilt = { beta: -10, gamma: 12 };
   });
-  await expect.poll(async () => Number(await indicator.getAttribute('data-roll'))).toBeGreaterThan(3);
-  await expect.poll(async () => Number(await indicator.getAttribute('data-pitch'))).toBeGreaterThan(3);
+  // Software WebGL on a busy machine can drop to 2-3 frames a second, and the
+  // smoothed tilt needs a few frames to cross the threshold.
+  const slow = { timeout: 15_000 };
+  await expect.poll(async () => Number(await indicator.getAttribute('data-roll')), slow).toBeGreaterThan(3);
+  await expect.poll(async () => Number(await indicator.getAttribute('data-pitch')), slow).toBeGreaterThan(3);
   await expect(page.locator('#hint')).toBeHidden();
+
+  // Escape pauses, keeps Tab out of the HUD behind the dialog, and resumes.
+  await page.keyboard.press('Escape');
+  const paused = page.getByRole('dialog', { name: 'Paused' });
+  await expect(paused).toBeVisible();
+  expect(await page.locator('#hud').evaluate((el) => /** @type {HTMLElement} */ (el).inert)).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(paused).toBeHidden();
+  await expect(page.locator('#hud')).toBeVisible();
 
   expect(errors).toEqual([]);
 });

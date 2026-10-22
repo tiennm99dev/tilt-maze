@@ -122,13 +122,15 @@ export function createScreens(actions) {
           const level = i + 1;
           const button = document.createElement('button');
           button.type = 'button';
-          button.className = 'level-btn';
+          const cleared = Boolean(best[String(level)]);
+          // The highest unlocked level not yet cleared is the one to play next.
+          button.className = level === unlocked && !cleared ? 'level-btn next' : 'level-btn';
           button.dataset.level = String(level);
           button.disabled = level > unlocked;
           const label = document.createElement('span');
           label.textContent = String(level);
           const sub = document.createElement('small');
-          sub.textContent = level > unlocked ? 'locked' : best[String(level)] ? formatTime(best[String(level)]) : '—';
+          sub.textContent = level > unlocked ? 'locked' : cleared ? formatTime(best[String(level)]) : '—';
           button.append(label, sub);
           button.setAttribute('aria-label', `Level ${level}${level > unlocked ? ' (locked)' : ''}`);
           return button;
@@ -152,8 +154,9 @@ export function createScreens(actions) {
      * @param {number | null} result.bestMs
      * @param {boolean} result.newBest
      * @param {boolean} result.hasNext
+     * @param {string} result.nextLabel Text of the next button.
      */
-    showWin({ title, timeMs, falls, bestMs, newBest, hasNext }) {
+    showWin({ title, timeMs, falls, bestMs, newBest, hasNext, nextLabel }) {
       byId('win-title').textContent = title;
       byId('win-time').textContent = formatTime(timeMs);
       const parts = [`${falls} ${falls === 1 ? 'fall' : 'falls'}`];
@@ -162,6 +165,7 @@ export function createScreens(actions) {
       byId('win-best').hidden = !newBest;
       const next = /** @type {HTMLButtonElement} */ (byId('btn-next'));
       next.hidden = !hasNext;
+      next.textContent = nextLabel;
       byId('btn-win-retry').classList.toggle('primary', !hasNext);
     },
   };
