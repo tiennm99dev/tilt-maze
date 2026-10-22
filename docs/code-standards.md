@@ -8,10 +8,13 @@
 - **Browser APIs missing from lib.dom** (such as iOS `requestPermission`) get a JSDoc typedef
   and a cast at the call site, not a `.d.ts` file. See `src/input/sensors.js`.
 - **Lint:** ESLint flat config with `eslint-plugin-jsdoc` (`recommended-typescript-flavor`).
-  The lint run must finish with no warnings.
+  The lint run must finish with no warnings; `npm run lint` passes `--max-warnings=0`, so CI
+  fails on any warning.
 - **Constants** go in `src/tuning.js`, not inline.
 - **Testing boundary:** logic that can run without a DOM or WebGL lives in pure modules and has
-  Vitest specs in `tests/unit/`. Browser glue is covered by the single Playwright smoke spec.
+  Vitest specs in `tests/unit/`. Browser glue is mostly covered by the single Playwright smoke
+  spec; a small glue helper may take its browser globals (`window`, `navigator`, an event
+  target) as arguments so Vitest can test it with stand-ins.
   When a bug turns up in glue code, move the logic into a pure module and test it there.
 - **Physics engine calls** stay in `src/physics/world.js`.
 - **Teardown:** anything that owns GPU resources, listeners or a physics world exposes

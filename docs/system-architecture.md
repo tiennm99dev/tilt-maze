@@ -11,7 +11,7 @@ main.js ──── menu flow, state machine, storage, sound, sensor permission
    ▼
 game/game.js ── render loop, fixed-step physics, falls and wins
    ├── input/      sensors + keyboard/drag → board tilt and shakes
-   ├── level/      seeded maze, holes, layout boxes (pure)
+   ├── level/      seeded maze, holes, layout boxes and floor mesh (pure)
    ├── physics/    Rapier world (all engine calls) + tilt-to-gravity maths
    └── render/     Three.js stage, board meshes
 ```
@@ -20,7 +20,13 @@ game/game.js ── render loop, fixed-step physics, falls and wins
   `input/shake-detector.js`, `game/loop.js`, `game/state-machine.js`, `storage.js`,
   `physics/gravity.js`) use no DOM or WebGL and carry the unit tests.
 - **Browser glue** (`input/sensors.js`, `input/fallback.js`, `render/*`, `ui/*`, `audio/*`,
-  `game/game.js`, `main.js`) is covered by the Playwright smoke spec and by hand.
+  `game/game.js`, `main.js`) is covered by the Playwright smoke spec and by hand. Small glue
+  helpers that take their browser globals as arguments also have Vitest specs: the sensor
+  permission, screen-angle and wake-lock helpers (`sensors.test.js`), the keyboard and drag
+  fallback (`fallback.test.js`) and the portrait framing solver (`render/framing.js`).
+- **`physics/world.js`** runs under Node too, so `physics.test.js` drives the real Rapier world
+  on small hand-built boards (floor seams, shake height against the rim, wall tunnelling,
+  holes, respawn).
 
 ## Decisions
 
@@ -30,7 +36,7 @@ game/game.js ── render loop, fixed-step physics, falls and wins
 | Rapier (`@dimforge/rapier3d-compat`) | The only maintained JS engine with continuous collision detection, which stops a fast ball tunnelling through thin walls | cannon-es (no CCD, dormant), ammo.js (stale npm build), a hand-written solver (more to tune) |
 | Every Rapier call stays in `physics/world.js` | Rapier is 0.x and breaks between minors; an upgrade touches one file | |
 | Physics and drawing both build from `level/layout.js` boxes | What you see is exactly what the ball hits | |
-| The engine chunk loads lazily | The title screen paints at once; Three.js and the ~1.7 MB (gzip) Rapier chunk download while the player reads it | |
+| The engine chunk loads lazily | The title screen paints at once; Three.js and the ~1.7 MB (gzip) Rapier chunk download in parallel while the player reads it | |
 | iOS permission, audio unlock and wake lock run inside the first tap, before any `await` | iOS refuses the motion permission once the gesture has been awaited away | |
 | Only the orientation permission decides sensor mode; motion only powers the shake | A refused motion prompt must not force drag mode when tilt works | |
 | The wake lock is held only in play states, and the scene renders only while the board can move | Menus, pause and the win screen let the phone dim and stop drawing | |

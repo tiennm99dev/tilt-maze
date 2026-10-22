@@ -7,11 +7,12 @@ Docs index: [docs/README.md](docs/README.md).
 
 - Verify before every commit: `npm run lint && npm run typecheck && npm test && npm run build`.
   Add `npm run test:e2e` when touching boot, input wiring or rendering. It needs
-  `npx playwright install chromium` once, or `CHROMIUM_PATH` pointing at a system Chromium.
+  `npx playwright install --no-shell chromium` once, or `CHROMIUM_PATH` pointing at a system Chromium.
   Keep `channel: 'chromium'` in `playwright.config.js`: the headless shell drops the synthetic
   orientation events the smoke test sends.
 - Dev server port is 5188 and preview is 4188, both with `strictPort`. If a port is busy, stop
-  the stale server instead of picking another port.
+  the stale server instead of picking another port. `npm run test:e2e` builds and serves its own
+  preview on 4188 and never reuses a running one, so stop any preview before running it.
 
 ## Rules
 

@@ -7,7 +7,7 @@ jumps: over an inner wall if you are lucky, off the edge of the board if you are
 
 ## How to play
 
-- Tap **Tap to play**. On an iPhone, allow motion access when Safari asks.
+- Tap **Play**. On an iPhone, allow motion access when Safari asks.
 - Hold the phone however is comfortable: the game takes that angle as level. Tap the ⟲ button
   any time to re-level at your current angle.
 - Tilt to roll the marble. Reach the green ring to finish the level.
@@ -39,7 +39,7 @@ npm run dev        # http://localhost:5188/
 | `npm run lint` | ESLint (with JSDoc rules) |
 | `npm run typecheck` | Type-check the JSDoc types with TypeScript |
 | `npm test` | Unit tests (Vitest) |
-| `npm run test:e2e` | Browser smoke test (Playwright); run `npx playwright install chromium` once first, or set `CHROMIUM_PATH` to a local Chromium |
+| `npm run test:e2e` | Browser smoke test (Playwright); run `npx playwright install --no-shell chromium` once first, or set `CHROMIUM_PATH` to a local Chromium |
 | `npm run check` | Lint, type check, unit and smoke tests |
 
 ## Testing on a phone

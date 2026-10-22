@@ -7,13 +7,13 @@
 | `src/tuning.js` | Every tunable constant |
 | `src/game/` | In-level engine (`game.js`), fixed-step loop, state machine |
 | `src/input/` | Tilt maths, filters, shake detection, sensors, keyboard and drag |
-| `src/level/` | Seeded RNG, maze generation, holes, level table, layout boxes |
+| `src/level/` | Seeded RNG, maze generation, holes, level table, layout boxes and floor mesh |
 | `src/physics/` | Rapier world and tilt-to-gravity maths |
-| `src/render/` | Renderer, camera and lights; board meshes |
+| `src/render/` | Renderer, camera and lights; portrait framing solver; board meshes |
 | `src/ui/` | Screens, HUD, DOM helpers |
 | `src/audio/sfx.js` | Synthesised sound and vibration |
 | `src/storage.js` | Versioned save data in localStorage |
-| `tests/unit/` | Vitest specs for the pure modules |
+| `tests/unit/` | Vitest specs for the pure modules, small glue helpers and the Rapier world |
 | `tests/e2e/smoke.spec.js` | Playwright boot and sensor smoke test |
 | `.github/workflows/deploy.yml` | CI gates and the Pages deploy |
 | `plans/` | Plans for past and future work |

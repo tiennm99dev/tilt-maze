@@ -3,9 +3,16 @@
 ## Production
 
 Every push to `main` runs [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml):
-lint, type check, unit tests, the Playwright smoke test and the build, then a deploy to GitHub
-Pages at <https://tiennm99dev.github.io/tilt-maze/>. A failed gate stops the deploy, and Pages
-keeps serving the last good build. The repository's Pages source is set to "GitHub Actions";
+lint (zero warnings), type check, unit tests, then the Playwright smoke test, whose web server
+runs the production build that is deployed, then a deploy to GitHub Pages at
+<https://tiennm99dev.github.io/tilt-maze/>. A failed gate stops the deploy, and Pages keeps
+serving the last good build. When the smoke test fails, its traces and screenshots are
+uploaded as the `playwright-test-results` artifact (kept 7 days); open a trace with
+`npx playwright show-trace <file>.zip`.
+
+Only the deploy job holds `pages: write` and `id-token: write`; the build job, which runs
+`npm ci` and the test tooling, reads only. A push during a run waits for it rather than
+cancelling a deploy halfway. The repository's Pages source is set to "GitHub Actions";
 nothing else needs configuring.
 
 The build uses a relative base (`./`), so the same output works on the Pages subpath and behind
