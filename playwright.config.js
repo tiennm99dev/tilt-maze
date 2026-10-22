@@ -10,9 +10,12 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}/`,
     ...devices['Desktop Chrome'],
+    // Full Chromium in new headless mode. With the headless shell the game
+    // never saw the dispatched deviceorientation events, so sensors read as
+    // missing and the smoke test failed.
+    channel: 'chromium',
     launchOptions: {
-      // CHROMIUM_PATH lets hosts without Playwright's own browser build
-      // (for example ARM64 Linux) use the system Chromium instead.
+      // CHROMIUM_PATH runs a system Chromium instead of Playwright's download.
       executablePath: process.env.CHROMIUM_PATH || undefined,
       args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
     },
