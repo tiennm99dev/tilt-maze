@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#1d2433" />
+    <meta name="description" content="Tilt your phone to roll a marble through a 3D maze. Shake hard and it flies off the board." />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <title>Tilt Maze</title>
+  </head>
+  <body>
+    <canvas id="stage" aria-label="Maze board"></canvas>
+
+    <div id="hud" class="hud" hidden>
+      <div class="hud-stats">
+        <span id="hud-level" class="pill">Level 1</span>
+        <span class="pill"><span class="pill-label">Time</span> <span id="hud-time">0:00.0</span></span>
+        <span class="pill"><span class="pill-label">Falls</span> <span id="hud-falls">0</span></span>
+      </div>
+      <div class="hud-buttons">
+        <div id="tilt-indicator" class="tilt-indicator" data-pitch="0" data-roll="0" title="Board tilt">
+          <span class="tilt-dot"></span>
+        </div>
+        <button id="btn-recalibrate" class="icon-btn" type="button" aria-label="Recalibrate" title="Recalibrate">&#x27F2;</button>
+        <button id="btn-mute" class="icon-btn" type="button" aria-label="Mute" title="Mute">&#x266A;</button>
+        <button id="btn-pause" class="icon-btn" type="button" aria-label="Pause" title="Pause">&#x275A;&#x275A;</button>
+      </div>
+    </div>
+
+    <div id="hint" class="hint" hidden></div>
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+    <section id="screen-title" class="screen">
+      <div class="panel">
+        <h1>Tilt Maze</h1>
+        <p class="tagline">Tilt your phone to roll the marble to the green ring. Shake hard and it jumps &mdash; maybe right off the board.</p>
+        <button id="btn-play" class="btn primary" type="button">Tap to play</button>
+        <div class="row">
+          <button id="btn-levels" class="btn" type="button">Levels</button>
+          <button id="btn-endless" class="btn" type="button">Endless</button>
+          <button id="btn-settings" class="btn" type="button">Settings</button>
+        </div>
+        <p id="title-error" class="error" hidden></p>
+        <p class="small">No phone? Use the arrow keys or WASD, Space to jump, or drag the board.</p>
+      </div>
+    </section>
+
+    <section id="screen-levelSelect" class="screen" hidden>
+      <div class="panel">
+        <h2>Levels</h2>
+        <div id="level-grid" class="level-grid"></div>
+        <button id="btn-levels-back" class="btn" type="button">Back</button>
+      </div>
+    </section>
+
+    <section id="screen-settings" class="screen" hidden>
+      <div class="panel">
+        <h2>Settings</h2>
+        <label class="field">
+          <span>Sensitivity <output id="sensitivity-value">1.0&times;</output></span>
+          <input id="sensitivity" type="range" min="0.5" max="2" step="0.1" value="1" />
+        </label>
+        <label class="field checkbox">
+          <input id="invert" type="checkbox" />
+          <span>Invert tilt</span>
+        </label>
+        <button id="btn-settings-back" class="btn" type="button">Back</button>
+      </div>
+    </section>
+
+    <section id="screen-loading" class="screen" hidden>
+      <div class="panel">
+        <div class="spinner" aria-hidden="true"></div>
+        <p id="loading-text">Loading&hellip;</p>
+      </div>
+    </section>
+
+    <section id="screen-paused" class="screen" hidden>
+      <div class="panel">
+        <h2>Paused</h2>
+        <button id="btn-resume" class="btn primary" type="button">Resume</button>
+        <div class="row">
+          <button id="btn-retry" class="btn" type="button">Retry</button>
+          <button id="btn-pause-settings" class="btn" type="button">Settings</button>
+          <button id="btn-pause-levels" class="btn" type="button">Levels</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-won" class="screen" hidden>
+      <div class="panel">
+        <h2 id="win-title">Level complete</h2>
+        <p class="win-time" id="win-time">0:00.0</p>
+        <p id="win-details" class="small"></p>
+        <p id="win-best" class="best" hidden>New best!</p>
+        <button id="btn-next" class="btn primary" type="button">Next level</button>
+        <div class="row">
+          <button id="btn-win-retry" class="btn" type="button">Retry</button>
+          <button id="btn-win-levels" class="btn" type="button">Levels</button>
+        </div>
+      </div>
+    </section>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
