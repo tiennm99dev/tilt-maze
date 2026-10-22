@@ -214,6 +214,9 @@ h2 {
 
 .hud-buttons {
   justify-content: flex-end;
+  /* The buttons stay on one row; only the stats may wrap. */
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .pill {
@@ -333,5 +336,32 @@ h2 {
 @media (prefers-reduced-motion: reduce) {
   .spinner {
     animation-duration: 3s;
+  }
+}
+
+/* Narrow phones: smaller pills and buttons so the HUD fits one row. */
+@media (max-width: 440px) {
+  .hud {
+    gap: 6px;
+  }
+
+  .hud-stats,
+  .hud-buttons {
+    gap: 4px;
+  }
+
+  .pill {
+    padding: 5px 9px;
+    font-size: 0.85rem;
+  }
+
+  .pill-label {
+    font-size: 0.72rem;
+  }
+
+  .icon-btn,
+  .tilt-indicator {
+    width: 40px;
+    height: 40px;
   }
 }
