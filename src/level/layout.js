@@ -168,3 +168,52 @@ export function buildLayout(level, geo) {
     goal: cellCentre(maze.goal),
   };
 }
+
+/**
+ * @typedef {object} FloorMesh
+ * @property {Float32Array} vertices x, y, z per vertex; every vertex has y = 0.
+ * @property {Uint32Array} indices Three per triangle, wound so normals face +y.
+ */
+
+/**
+ * The top face of the floor as one triangle mesh. Every floor and hole edge
+ * becomes a grid line across the whole board, so neighbouring quads share
+ * their vertices and no vertex sits on another triangle's edge. Quads inside
+ * a hole are left out. A rolling ball then meets one continuous surface
+ * instead of the seams between floor boxes, which it would bump over.
+ * @param {Layout} layout
+ * @returns {FloorMesh}
+ */
+export function floorMesh(layout) {
+  /** @param {number[]} values */
+  const breakpoints = (values) => {
+    const sorted = [...values].sort((a, b) => a - b);
+    return sorted.filter((v, i) => i === 0 || v - sorted[i - 1] > 1e-6);
+  };
+  const boxes = [...layout.floor, ...layout.holes];
+  const xs = breakpoints(boxes.flatMap((b) => [b.cx - b.hx, b.cx + b.hx]));
+  const zs = breakpoints(boxes.flatMap((b) => [b.cz - b.hz, b.cz + b.hz]));
+  /**
+   * @param {number} x
+   * @param {number} z
+   */
+  const inHole = (x, z) => layout.holes.some((h) => Math.abs(x - h.cx) < h.hx && Math.abs(z - h.cz) < h.hz);
+
+  const vertices = new Float32Array(xs.length * zs.length * 3);
+  xs.forEach((x, i) => {
+    zs.forEach((z, j) => vertices.set([x, 0, z], (i * zs.length + j) * 3));
+  });
+  /** @type {number[]} */
+  const indices = [];
+  for (let i = 0; i + 1 < xs.length; i += 1) {
+    for (let j = 0; j + 1 < zs.length; j += 1) {
+      if (inHole((xs[i] + xs[i + 1]) / 2, (zs[j] + zs[j + 1]) / 2)) continue;
+      const v00 = i * zs.length + j;
+      const v01 = v00 + 1;
+      const v10 = v00 + zs.length;
+      const v11 = v10 + 1;
+      indices.push(v00, v01, v10, v10, v01, v11);
+    }
+  }
+  return { vertices, indices: new Uint32Array(indices) };
+}

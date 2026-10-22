@@ -2,13 +2,14 @@
  * Physics world. Every Rapier call lives in this file, so an API change in
  * the 0.x engine touches one module.
  *
- * Walls and floor are fixed colliders in board space; tilt is applied by
- * rotating gravity (see gravity.js). The ball is a dynamic sphere with
- * continuous collision detection so a hard fling cannot tunnel through a
- * thin wall, and sleeping is off because Rapier does not wake a body when
- * gravity changes.
+ * Walls (boxes) and the floor (one triangle mesh) are fixed colliders in
+ * board space; tilt is applied by rotating gravity (see gravity.js). The
+ * ball is a dynamic sphere with continuous collision detection so a hard
+ * fling cannot tunnel through a thin wall, and sleeping is off because
+ * Rapier does not wake a body when gravity changes.
  */
 
+import { floorMesh } from '../level/layout.js';
 import { PHYSICS } from '../tuning.js';
 
 /** @typedef {typeof import('@dimforge/rapier3d-compat').default} Rapier */
@@ -64,7 +65,20 @@ export class PhysicsWorld {
     this.world.timestep = PHYSICS.stepSeconds;
 
     const fixed = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
-    for (const b of [...layout.floor, ...layout.walls]) {
+    // The floor is one trimesh: separate floor boxes leave seams the ball
+    // hops over. FIX_INTERNAL_EDGES stops it catching on the shared edges.
+    const floor = floorMesh(layout);
+    this.world.createCollider(
+      RAPIER.ColliderDesc.trimesh(
+        floor.vertices,
+        floor.indices,
+        RAPIER.TriMeshFlags.FIX_INTERNAL_EDGES | RAPIER.TriMeshFlags.MERGE_DUPLICATE_VERTICES,
+      )
+        .setFriction(PHYSICS.wallFriction)
+        .setRestitution(PHYSICS.wallRestitution),
+      fixed,
+    );
+    for (const b of layout.walls) {
       this.world.createCollider(
         RAPIER.ColliderDesc.cuboid(b.hx, b.hy, b.hz)
           .setTranslation(b.cx, b.cy, b.cz)
