@@ -41,7 +41,31 @@ export const preload = () => loadPhysics();
 export async function createGame({ canvas, sensors, fsm, sfx, settings, savedNeutral, callbacks }) {
   const RAPIER = await loadPhysics();
   const stage = createStage(canvas);
-  const input = createInput({ sensors, surface: canvas, settings, savedNeutral });
+  try {
+    return startGame({ RAPIER, stage, sensors, fsm, sfx, settings, savedNeutral, callbacks });
+  } catch (error) {
+    // A retry builds a new renderer on the same canvas; free this one first.
+    stage.dispose();
+    throw error;
+  }
+}
+
+/** States in which the board changes from frame to frame. */
+const LIVE_STATES = new Set(['ready', 'playing', 'falling']);
+
+/**
+ * @param {object} options
+ * @param {Awaited<ReturnType<typeof loadPhysics>>} options.RAPIER
+ * @param {import('../render/scene.js').Stage} options.stage
+ * @param {import('../input/sensors.js').Sensors} options.sensors
+ * @param {import('./state-machine.js').StateMachine} options.fsm
+ * @param {import('../audio/sfx.js').Sfx} options.sfx
+ * @param {() => import('../input/input.js').InputSettings} options.settings
+ * @param {{x: number, y: number, z: number} | null} options.savedNeutral
+ * @param {GameCallbacks} options.callbacks
+ */
+function startGame({ RAPIER, stage, sensors, fsm, sfx, settings, savedNeutral, callbacks }) {
+  const input = createInput({ sensors, surface: stage.renderer.domElement, settings, savedNeutral });
   const stepper = createFixedStepper({
     stepSeconds: PHYSICS.stepSeconds,
     maxSteps: PHYSICS.maxStepsPerFrame,
@@ -85,6 +109,10 @@ export async function createGame({ canvas, sensors, fsm, sfx, settings, savedNeu
     falls = 0;
     input.reset();
     resetBall();
+    meshes.ball.position.copy(currPos);
+    // Draw once now, behind the loading screen: the first draw compiles the
+    // shaders, which would otherwise stall the first frame of play.
+    stage.render();
   };
 
   /** @returns {boolean} */
@@ -140,8 +168,11 @@ export async function createGame({ canvas, sensors, fsm, sfx, settings, savedNeu
       boardGravity(board, PHYSICS.gravity, gravity);
       world.setGravity(gravity);
       applyShake(board);
-      alpha = stepper.advance(dt, stepPhysics).alpha;
-      timeMs += dt * 1000;
+      const advanced = stepper.advance(dt, stepPhysics);
+      alpha = advanced.alpha;
+      // Charge only simulated time, so a stalling device is not penalised
+      // for frames the stepper had to drop.
+      timeMs += advanced.steps * PHYSICS.stepSeconds * 1000;
 
       if (state === 'playing' && currPos.y < PHYSICS.fallingY) {
         fsm.go('falling');
@@ -175,7 +206,9 @@ export async function createGame({ canvas, sensors, fsm, sfx, settings, savedNeu
     }
 
     callbacks.onTick(timeMs, falls, board);
-    stage.render();
+    // Menus, pause and the win screen show a still board: the canvas keeps
+    // the last frame, and the stage redraws itself on resize.
+    if (LIVE_STATES.has(state)) stage.render();
   };
 
   rafId = requestAnimationFrame((now) => {
@@ -214,4 +247,4 @@ export async function createGame({ canvas, sensors, fsm, sfx, settings, savedNeu
   };
 }
 
-/** @typedef {Awaited<ReturnType<typeof createGame>>} Game */
+/** @typedef {ReturnType<typeof startGame>} Game */

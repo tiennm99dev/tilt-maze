@@ -18,7 +18,10 @@ set the way they are, so a later change can be made on purpose.
   ordinary tilting from ever throwing the ball over the rim.
 - **Landscape.** The screen angle rotates the device axes into screen axes. Browsers have
   disagreed about the sign of that angle, so `TILT.screenAngleSign` flips it in one place if a
-  real device shows the ball rolling the wrong way.
+  real device shows the ball rolling the wrong way. The neutral pose is kept in screen axes, so
+  it stays valid after a rotation. A rotation during play pauses the game instead of
+  recalibrating: it is usually the OS reacting to a hard tilt, and the resume tap recalibrates
+  from a pose the player chose.
 
 ## Shake and flying off
 
@@ -58,6 +61,9 @@ set the way they are, so a later change can be made on purpose.
 There are no lives. A fall costs a respawn at the start and 5 seconds. Time is the score, so
 mistakes already cost something and best times still mean something. The timer starts on the
 first input, not when the level appears, so permission prompts and calibration never count.
+It adds only simulated time, so a stalling phone is not charged for frames physics dropped.
+Endless keeps one best time across all its random mazes: a record for the fastest maze ever
+cleared, not a per-maze best.
 
 ## Look
 

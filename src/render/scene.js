@@ -25,7 +25,8 @@ const DEG = Math.PI / 180;
  */
 export function createStage(canvas) {
   const renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, RENDER.maxPixelRatio));
+  const pixelRatio = () => Math.min(window.devicePixelRatio || 1, RENDER.maxPixelRatio);
+  renderer.setPixelRatio(pixelRatio());
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.shadowMap.enabled = true;
@@ -87,7 +88,20 @@ export function createStage(canvas) {
     frame();
   };
 
-  const observer = new ResizeObserver(frame);
+  const render = () => {
+    // Zoom or a move to another monitor changes the ratio without a resize.
+    if (renderer.getPixelRatio() !== pixelRatio()) {
+      renderer.setPixelRatio(pixelRatio());
+      frame();
+    }
+    renderer.render(scene, camera);
+  };
+
+  // Resizing clears the canvas, so redraw even when the game loop is idle.
+  const observer = new ResizeObserver(() => {
+    frame();
+    render();
+  });
   observer.observe(canvas);
   setBoardSize(boardSize);
 
@@ -96,7 +110,7 @@ export function createStage(canvas) {
     scene,
     camera,
     setBoardSize,
-    render: () => renderer.render(scene, camera),
+    render,
     dispose() {
       observer.disconnect();
       envTarget.dispose();
