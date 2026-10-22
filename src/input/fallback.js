@@ -47,8 +47,11 @@ function axisKey(e) {
   return KEY_FALLBACK[e.key];
 }
 
-/** @param {EventTarget | null} target */
-function isEditable(target) {
+/**
+ * Keys typed into a form field are not game keys.
+ * @param {EventTarget | null} target
+ */
+export function isEditable(target) {
   return (
     target instanceof HTMLElement &&
     (target.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName))
@@ -68,10 +71,13 @@ export function createFallbackControls({ surface, phoneMaxDeg, dragFullTiltFract
   /** @type {{id: number, x: number, y: number, dx: number, dy: number} | null} */
   let drag = null;
   let dragEnabled = true;
+  let keysEnabled = true;
 
   /** @param {KeyboardEvent} e */
   const onKeyDown = (e) => {
-    if (isEditable(e.target)) return;
+    // Menus keep the browser's own keys (Space presses the focused button),
+    // and modifier chords stay browser shortcuts such as Ctrl+S or Cmd+D.
+    if (!keysEnabled || e.ctrlKey || e.metaKey || e.altKey || isEditable(e.target)) return;
     if (e.code === 'Space' || e.key === ' ') {
       e.preventDefault();
       if (!e.repeat) onShake();
@@ -85,6 +91,11 @@ export function createFallbackControls({ surface, phoneMaxDeg, dragFullTiltFract
   };
   /** @param {KeyboardEvent} e */
   const onKeyUp = (e) => {
+    // macOS sends no keyup for keys released while Cmd is held.
+    if (e.key === 'Meta') {
+      keys.clear();
+      return;
+    }
     const key = axisKey(e);
     if (key) keys.delete(key);
   };
@@ -95,6 +106,9 @@ export function createFallbackControls({ surface, phoneMaxDeg, dragFullTiltFract
   /** @param {PointerEvent} e */
   const onPointerDown = (e) => {
     if (!dragEnabled || drag) return;
+    // Only a primary left-button press drags; a right click would open the
+    // context menu, which swallows the pointerup and latches the tilt.
+    if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
     drag = { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, dy: 0 };
     surface.setPointerCapture?.(e.pointerId);
   };
@@ -108,6 +122,8 @@ export function createFallbackControls({ surface, phoneMaxDeg, dragFullTiltFract
   const onPointerUp = (e) => {
     if (drag && e.pointerId === drag.id) drag = null;
   };
+  /** @param {Event} e */
+  const onContextMenu = (e) => e.preventDefault();
 
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
@@ -116,6 +132,8 @@ export function createFallbackControls({ surface, phoneMaxDeg, dragFullTiltFract
   surface.addEventListener('pointermove', onPointerMove);
   surface.addEventListener('pointerup', onPointerUp);
   surface.addEventListener('pointercancel', onPointerUp);
+  surface.addEventListener('lostpointercapture', onPointerUp);
+  surface.addEventListener('contextmenu', onContextMenu);
 
   return {
     /** @returns {Tilt | null} Target phone tilt, or null when idle. */
@@ -145,6 +163,11 @@ export function createFallbackControls({ surface, phoneMaxDeg, dragFullTiltFract
       dragEnabled = enabled;
       if (!enabled) drag = null;
     },
+    /** @param {boolean} enabled Keys steer only in play; menus get the browser's keys back. */
+    setKeysEnabled(enabled) {
+      keysEnabled = enabled;
+      if (!enabled) keys.clear();
+    },
     dispose() {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
@@ -153,6 +176,8 @@ export function createFallbackControls({ surface, phoneMaxDeg, dragFullTiltFract
       surface.removeEventListener('pointermove', onPointerMove);
       surface.removeEventListener('pointerup', onPointerUp);
       surface.removeEventListener('pointercancel', onPointerUp);
+      surface.removeEventListener('lostpointercapture', onPointerUp);
+      surface.removeEventListener('contextmenu', onContextMenu);
     },
   };
 }

@@ -89,4 +89,46 @@ describe('createWakeLock', () => {
     handlers.visibilitychange();
     expect(request).toHaveBeenCalledTimes(1);
   });
+
+  /** Wake lock API whose requests resolve only when the test says so. */
+  const deferredLock = () => {
+    /** @type {Array<() => void>} */
+    const resolvers = [];
+    const sentinels = /** @type {Array<{release: ReturnType<typeof vi.fn>}>} */ ([]);
+    const request = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          const s = { release: vi.fn(() => Promise.resolve()), addEventListener: vi.fn() };
+          sentinels.push(s);
+          resolvers.push(() => resolve(s));
+        }),
+    );
+    vi.stubGlobal('navigator', { wakeLock: { request } });
+    vi.stubGlobal('document', { visibilityState: 'visible', addEventListener: vi.fn() });
+    return { request, sentinels, resolveAll: () => resolvers.splice(0).forEach((r) => r()) };
+  };
+
+  it('sends one request when enabled twice before the first resolves', async () => {
+    const { request, sentinels, resolveAll } = deferredLock();
+    const lock = createWakeLock();
+    lock.enable();
+    lock.enable();
+    expect(request).toHaveBeenCalledTimes(1);
+    resolveAll();
+    await Promise.resolve();
+    await Promise.resolve();
+    lock.disable();
+    expect(sentinels[0].release).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases a lock that arrives after disable()', async () => {
+    const { sentinels, resolveAll } = deferredLock();
+    const lock = createWakeLock();
+    lock.enable();
+    lock.disable();
+    resolveAll();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(sentinels[0].release).toHaveBeenCalledTimes(1);
+  });
 });

@@ -144,6 +144,9 @@ export function createInput({ sensors, surface, settings, savedNeutral = null })
     /** @param {boolean} enabled */
     setDragEnabled: (enabled) => fallback.setDragEnabled(enabled),
 
+    /** @param {boolean} enabled */
+    setKeysEnabled: (enabled) => fallback.setKeysEnabled(enabled),
+
     reset() {
       smoother.reset();
       pendingShake = 0;

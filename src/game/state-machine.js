@@ -15,7 +15,7 @@ export const TRANSITIONS = Object.freeze({
   levelSelect: ['title', 'permission'],
   settings: ['title', 'paused'],
   permission: ['calibrating', 'title'],
-  calibrating: ['ready', 'playing', 'falling'],
+  calibrating: ['ready', 'playing', 'falling', 'paused'],
   ready: ['playing', 'paused', 'calibrating'],
   playing: ['paused', 'falling', 'won', 'calibrating'],
   falling: ['playing', 'paused'],

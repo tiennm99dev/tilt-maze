@@ -150,12 +150,22 @@ export function createWakeLock() {
   /** @type {WakeLockSentinel | null} */
   let sentinel = null;
   let wanted = false;
+  // One request at a time: a second one would overwrite the first sentinel,
+  // which then never gets released.
+  let pending = false;
 
   const acquire = () => {
-    if (!wanted || sentinel || !('wakeLock' in navigator)) return;
+    if (!wanted || sentinel || pending || !('wakeLock' in navigator)) return;
+    pending = true;
     navigator.wakeLock
       .request('screen')
       .then((s) => {
+        pending = false;
+        // disable() ran while the request was in flight.
+        if (!wanted) {
+          s.release().catch(() => {});
+          return;
+        }
         sentinel = s;
         s.addEventListener('release', () => {
           sentinel = null;
@@ -163,6 +173,7 @@ export function createWakeLock() {
       })
       .catch(() => {
         // Denied (battery saver, unsupported context): play on without it.
+        pending = false;
         sentinel = null;
       });
   };
