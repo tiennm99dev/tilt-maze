@@ -1,7 +1,7 @@
 ---
 title: "Tilt Maze: gyro-tilted 3D marble maze"
 description: "Three.js + Rapier browser game where phone tilt steers a marble through a seeded maze, and a hard shake can fling it off the board."
-status: in-progress
+status: completed
 priority: P2
 effort: 26h
 branch: main
