@@ -20,6 +20,11 @@ export const TILT = Object.freeze({
   sensitivityMax: 2,
   /** How long the neutral pose is averaged when calibrating. */
   calibrationMs: 250,
+  /**
+   * Wait between the tap that starts a calibration and its sampling, so the
+   * prompt can be read and the thumb has left the screen.
+   */
+  calibrationLeadMs: 600,
   /** Sensors count as live only if a real reading arrives this soon. */
   sensorProbeMs: 1000,
   /**
@@ -90,9 +95,26 @@ export const PHYSICS = Object.freeze({
   wallHitMinDeltaV: 1.2,
 });
 
+/** Level generation. Index i of a table is difficulty i + 1. */
+export const LEVELS = Object.freeze({
+  /** Grid side on the first and the last difficulty; sizes between are interpolated. */
+  minSize: 5,
+  maxSize: 11,
+  /** Holes per level, capped by the route cells that can take one. */
+  holes: Object.freeze([0, 1, 1, 2, 2, 3, 3, 4, 5, 6]),
+  /** Fraction of the remaining inner walls opened to add loops. */
+  braid: Object.freeze([0, 0, 0, 0.05, 0.05, 0.08, 0.1, 0.12, 0.15, 0.15]),
+  /** A loop may shorten the start-to-goal route to no less than this share of it. */
+  braidKeepRatio: 0.8,
+  /** Growing Tree: probability of growing from the newest cell. */
+  newestBias: 0.9,
+});
+
 /** Game rules. */
 export const RULES = Object.freeze({
   fallPenaltyMs: 5000,
+  /** Time between reaching the goal and the win screen, for the goal flash. */
+  winDelayMs: 500,
   levelCount: 10,
   endlessDifficulty: 10,
 });
@@ -102,8 +124,15 @@ export const RENDER = Object.freeze({
   fovDeg: 45,
   /** Camera leans this far from vertical toward the player. */
   cameraLeanDeg: 20,
-  /** Extra room around the board when framing. */
+  /** Extra room around the board when framing a landscape view. */
   framingMargin: 1.15,
+  /**
+   * Portrait: the fully tilted board fits within this share of the half
+   * width (normalised device coordinates).
+   */
+  portraitFitNdc: 0.97,
+  /** Portrait: CSS pixels kept clear at the top and bottom for the HUD and hint. */
+  hudReservePx: 64,
   maxPixelRatio: 2,
   shadowMapSize: 1024,
   colors: Object.freeze({

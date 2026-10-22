@@ -51,13 +51,22 @@ describe('generateMaze', () => {
     }
   });
 
-  it('braiding removes the requested share of inner walls', () => {
+  it('braiding removes the requested share of inner walls when the route allows', () => {
     const size = 10;
     const tree = generateMaze({ cols: size, rows: size, seed: 5 });
-    const braided = generateMaze({ cols: size, rows: size, seed: 5, braid: 0.1 });
+    const braided = generateMaze({ cols: size, rows: size, seed: 5, braid: 0.1, keepRatio: 0 });
     const innerEdges = 2 * size * (size - 1);
     const wallsBefore = innerEdges - countPassages(tree);
     expect(countPassages(braided) - countPassages(tree)).toBe(Math.round(wallsBefore * 0.1));
+  });
+
+  it('braiding never cuts the route below the keep ratio', () => {
+    for (let seed = 1; seed <= 60; seed += 1) {
+      const tree = generateMaze({ cols: 11, rows: 11, seed });
+      const braided = generateMaze({ cols: 11, rows: 11, seed, braid: 0.15, keepRatio: 0.8 });
+      expect(countPassages(braided)).toBeGreaterThan(countPassages(tree));
+      expect(solve(braided).length).toBeGreaterThanOrEqual(solve(tree).length * 0.8);
+    }
   });
 
   it('rejects invalid sizes', () => {

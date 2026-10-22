@@ -8,6 +8,7 @@
  * its open sides.
  */
 
+import { LEVELS } from '../tuning.js';
 import { createRng } from './rng.js';
 
 export const N = 1;
@@ -39,13 +40,22 @@ export const SIDES = Object.freeze([
  * @property {number} seed
  * @property {number} [newestBias] Probability of growing from the newest cell.
  * @property {number} [braid] Fraction of remaining inner walls to remove.
+ * @property {number} [keepRatio] A removed wall may not shorten the start-to-goal
+ *   route below this share of its length before braiding.
  */
 
 /**
  * @param {MazeOptions} options
  * @returns {Maze}
  */
-export function generateMaze({ cols, rows, seed, newestBias = 0.9, braid = 0 }) {
+export function generateMaze({
+  cols,
+  rows,
+  seed,
+  newestBias = LEVELS.newestBias,
+  braid = 0,
+  keepRatio = LEVELS.braidKeepRatio,
+}) {
   if (!Number.isInteger(cols) || !Number.isInteger(rows) || cols < 2 || rows < 2) {
     throw new RangeError(`Maze needs integer size >= 2x2, got ${cols}x${rows}`);
   }
@@ -79,17 +89,21 @@ export function generateMaze({ cols, rows, seed, newestBias = 0.9, braid = 0 }) 
   }
 
   const maze = { cols, rows, open, start, goal: cols - 1 };
-  if (braid > 0) removeWalls(maze, braid, rng);
+  if (braid > 0) removeWalls(maze, braid, keepRatio, rng);
   return maze;
 }
 
 /**
  * Opens a fraction of the inner walls that are still closed, adding loops.
+ * A wall whose opening would cut the start-to-goal route below `keepRatio`
+ * of its unbraided length stays closed, so loops add choices instead of a
+ * near-straight shortcut. When too few walls qualify, fewer are opened.
  * @param {Maze} maze
  * @param {number} fraction
+ * @param {number} keepRatio
  * @param {import('./rng.js').Rng} rng
  */
-function removeWalls(maze, fraction, rng) {
+function removeWalls(maze, fraction, keepRatio, rng) {
   /** @type {Array<[number, number]>} */
   const closed = [];
   for (let r = 0; r < maze.rows; r += 1) {
@@ -101,13 +115,19 @@ function removeWalls(maze, fraction, rng) {
   }
   rng.shuffle(closed);
   const count = Math.round(closed.length * fraction);
-  for (const [cell, bit] of closed.slice(0, count)) {
-    if (bit === E) {
-      maze.open[cell] |= E;
-      maze.open[cell + 1] |= W;
+  const minRoute = solve(maze).length * keepRatio;
+  let opened = 0;
+  for (const [cell, bit] of closed) {
+    if (opened >= count) break;
+    const other = bit === E ? cell + 1 : cell + maze.cols;
+    const back = bit === E ? W : N;
+    maze.open[cell] |= bit;
+    maze.open[other] |= back;
+    if (solve(maze).length < minRoute) {
+      maze.open[cell] &= ~bit;
+      maze.open[other] &= ~back;
     } else {
-      maze.open[cell] |= S;
-      maze.open[cell + maze.cols] |= N;
+      opened += 1;
     }
   }
 }

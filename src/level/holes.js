@@ -1,11 +1,11 @@
 /**
  * Hole placement. Holes go on the shortest route so the player has to pass
- * them, sit against a closed wall so a lane at least `minLaneWidth` wide
- * stays open, and never appear in the start cell, the cell after it, or the
- * goal cell.
+ * them, preferring cells no equally short route avoids; they sit against a
+ * closed wall so a lane at least `minLaneWidth` wide stays open, and never
+ * appear in the start cell, the cell after it, or the goal cell.
  */
 
-import { E, N, S, W } from './maze.js';
+import { E, N, S, W, neighbours } from './maze.js';
 
 /**
  * @typedef {object} HoleGeometry
@@ -100,28 +100,54 @@ export function holeLeavesLane(hole, openMask, geo) {
 }
 
 /**
+ * Breadth-first route length from start to goal with one cell blocked.
+ * @param {import('./maze.js').Maze} maze
+ * @param {number} blocked
+ * @returns {number} Steps, or Infinity when the block cuts the goal off.
+ */
+function distanceAvoiding(maze, blocked) {
+  const dist = new Int32Array(maze.open.length).fill(-1);
+  dist[maze.start] = 0;
+  const queue = [maze.start];
+  for (let head = 0; head < queue.length; head += 1) {
+    const cell = queue[head];
+    if (cell === maze.goal) return dist[cell];
+    for (const next of neighbours(maze, cell)) {
+      if (next === blocked || dist[next] !== -1) continue;
+      dist[next] = dist[cell] + 1;
+      queue.push(next);
+    }
+  }
+  return Infinity;
+}
+
+/**
  * @param {import('./maze.js').Maze} maze
  * @param {number[]} path Shortest route from start to goal.
- * @param {number} density Holes per route cell.
+ * @param {number} count Holes wanted; fewer when the route has no room.
  * @param {HoleGeometry} geo
  * @param {import('./rng.js').Rng} rng
  * @returns {Hole[]}
  */
-export function placeHoles(maze, path, density, geo, rng) {
+export function placeHoles(maze, path, count, geo, rng) {
   const inner = geo.cellSize - geo.wallThickness;
   if (inner - geo.holeSize < geo.minLaneWidth) {
     throw new RangeError('Board geometry leaves no lane beside a hole');
   }
-  const wanted = Math.round(path.length * density);
-  if (wanted <= 0) return [];
+  if (count <= 0) return [];
   // Skip the start cell, the cell after it and the goal cell.
-  const candidates = rng.shuffle(path.slice(2, -1).map((cell, i) => ({ cell, index: i + 2 })));
+  const shuffled = rng.shuffle(path.slice(2, -1).map((cell, i) => ({ cell, index: i + 2 })));
+  // Cells an equally short route goes around cost the player nothing, so
+  // they come last; the shuffled order stays within each group.
+  const base = path.length - 1;
+  const forced = new Set(shuffled.filter(({ cell }) => distanceAvoiding(maze, cell) > base));
+  const candidates = [...forced, ...shuffled.filter((c) => !forced.has(c))];
   /** @type {Set<number>} */
   const usedIndices = new Set();
   /** @type {Hole[]} */
   const holes = [];
   for (const { cell, index } of candidates) {
-    if (holes.length >= wanted) break;
+    if (holes.length >= count) break;
     // Never two holes in neighbouring route cells.
     if (usedIndices.has(index - 1) || usedIndices.has(index + 1)) continue;
     const hole = placeHoleInCell(maze.open[cell], cell, geo, rng.next);

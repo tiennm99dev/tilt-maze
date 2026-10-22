@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { holeLeavesLane, placeHoleInCell, placeHoles } from '../../src/level/holes.js';
-import { E, N, S, W, generateMaze, solve } from '../../src/level/maze.js';
+import { E, N, S, W, generateMaze, neighbours, solve } from '../../src/level/maze.js';
 import { createRng } from '../../src/level/rng.js';
 import { BOARD } from '../../src/tuning.js';
 
@@ -43,12 +43,29 @@ describe('holeLeavesLane', () => {
   });
 });
 
+/**
+ * Route length with one cell walled off on every side.
+ * @param {import('../../src/level/maze.js').Maze} maze
+ * @param {number} cell
+ * @returns {number} Cells on the route, or Infinity when none is left.
+ */
+function detour(maze, cell) {
+  const open = maze.open.slice();
+  for (const n of neighbours(maze, cell)) {
+    const d = n - cell;
+    open[n] &= ~(d === -maze.cols ? S : d === maze.cols ? N : d === 1 ? W : E);
+  }
+  open[cell] = 0;
+  const path = solve({ ...maze, open });
+  return path.length > 0 ? path.length : Infinity;
+}
+
 describe('placeHoles', () => {
   it('never uses the start, the cell after it, or the goal, and keeps lanes open', () => {
     for (let seed = 1; seed <= 40; seed += 1) {
       const maze = generateMaze({ cols: 11, rows: 11, seed, braid: 0.15 });
       const path = solve(maze);
-      const holes = placeHoles(maze, path, 0.12, geo, createRng(seed));
+      const holes = placeHoles(maze, path, 6, geo, createRng(seed));
       expect(holes.length).toBeGreaterThan(0);
       for (const hole of holes) {
         expect(hole.cell).not.toBe(maze.start);
@@ -62,13 +79,29 @@ describe('placeHoles', () => {
     }
   });
 
-  it('places nothing at zero density', () => {
+  it('prefers route cells that no equally short route avoids', () => {
+    let checked = 0;
+    for (let seed = 1; seed <= 60; seed += 1) {
+      const maze = generateMaze({ cols: 11, rows: 11, seed, braid: 0.15 });
+      const path = solve(maze);
+      const costly = path
+        .slice(2, -1)
+        .filter((cell) => maze.open[cell] !== (N | E | S | W) && detour(maze, cell) > path.length);
+      if (costly.length === 0) continue;
+      const [hole] = placeHoles(maze, path, 1, geo, createRng(seed));
+      expect(costly).toContain(hole.cell);
+      checked += 1;
+    }
+    expect(checked).toBeGreaterThan(30);
+  });
+
+  it('places nothing when no holes are wanted', () => {
     const maze = generateMaze({ cols: 5, rows: 5, seed: 1 });
     expect(placeHoles(maze, solve(maze), 0, geo, createRng(1))).toEqual([]);
   });
 
   it('refuses geometry with no room for a lane', () => {
     const maze = generateMaze({ cols: 5, rows: 5, seed: 1 });
-    expect(() => placeHoles(maze, solve(maze), 0.1, { ...geo, holeSize: 1.2 }, createRng(1))).toThrow(RangeError);
+    expect(() => placeHoles(maze, solve(maze), 1, { ...geo, holeSize: 1.2 }, createRng(1))).toThrow(RangeError);
   });
 });
