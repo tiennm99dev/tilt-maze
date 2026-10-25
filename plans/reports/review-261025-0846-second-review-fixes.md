@@ -28,8 +28,8 @@ Date: 2026-10-25. Working tree only, nothing committed.
 - **tooling** (`.github/workflows/deploy.yml`, `package.json`, `package-lock.json`, `README.md`,
   `docs/deployment-guide.md`)
   - CI drops `playwright install --with-deps` and uses the runner's `/usr/bin/google-chrome`
-    through `CHROMIUM_PATH`. The build job runs on `ubuntu-24.04` with timeouts of 15 minutes for
-    the job and 8 for the smoke test; the deploy job has a 10-minute timeout.
+    through `CHROMIUM_PATH`. Both jobs run on `ubuntu-latest`; the build job has timeouts of
+    15 minutes for the job and 8 for the smoke test; the deploy job has a 10-minute timeout.
   - `engines.node` is now `^22.22.2 || ^24.15.0 || >=26`, the range the locked dev tools accept.
 
 ## Fixes made during verification
@@ -80,7 +80,9 @@ Browser check of the production build (`vite preview` on 4188, agent-browser wit
 ## Not fixed or not verified
 
 - The new CI path (runner Google Chrome instead of the Chromium Playwright bundles) only gets
-  proven on the next push. The `ubuntu-24.04` pin has to move when GitHub retires that image.
+  proven on the next push. `CHROMIUM_PATH` relies on the runner image preinstalling Google
+  Chrome at `/usr/bin/google-chrome`, so recheck it if a run fails after `ubuntu-latest` moves
+  to Ubuntu 26.04.
 - Win-screen focus on the last level (Next hidden) was checked by reading the code, not in the
   browser, because reaching level 10 by script was out of scope.
 - Unchanged behaviour: Back or Escape from a level list opened from pause or a win still goes to
@@ -189,6 +191,6 @@ system Chromium):
 
 ### Not verified
 
-- That GitHub Pages serves the `.wasm` gzipped as `application/wasm` is only proven on the next
-  push. Any other content type still works, but the browser then compiles after the download.
+- Confirmed after the push: GitHub Pages serves the `.wasm` as `application/wasm` with gzip
+  (1,181,330 bytes on the wire).
 - The Endless win screen was checked through `showWin()`, not by clearing a maze.
