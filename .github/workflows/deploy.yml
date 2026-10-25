@@ -17,6 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
       # actions/configure-pages reads the Pages site settings.
@@ -43,14 +44,15 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      # Full Chromium only: playwright.config.js never uses the headless shell.
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps --no-shell chromium
-
       # The smoke test's web server runs `npm run build`, so this step also
-      # produces the dist/ that is deployed below.
+      # produces the dist/ that is deployed below. It drives the runner image's
+      # Google Chrome, which ships with its system libraries, instead of
+      # `playwright install --with-deps`, whose apt step could stall for minutes.
       - name: Smoke test and build
         run: npm run test:e2e
+        timeout-minutes: 8
+        env:
+          CHROMIUM_PATH: /usr/bin/google-chrome
 
       - name: Upload Playwright traces
         if: failure()
@@ -73,6 +75,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: build
     permissions:
       pages: write

@@ -23,7 +23,7 @@ the mouse, or use the arrow keys or WASD, and Space to jump.
 
 ## Run it locally
 
-Requirements: Node.js 22.12 or newer, and npm.
+Requirements: Node.js 22.22.2+, 24.15.0+ or 26+ (the locked dev tools reject other versions), and npm.
 
 ```sh
 npm ci

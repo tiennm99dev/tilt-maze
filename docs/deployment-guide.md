@@ -10,6 +10,12 @@ serving the last good build. When the smoke test fails, its traces and screensho
 uploaded as the `playwright-test-results` artifact (kept 7 days); open a trace with
 `npx playwright show-trace <file>.zip`.
 
+The build job points `CHROMIUM_PATH` at the Google Chrome that GitHub's Ubuntu runner images
+preinstall (`/usr/bin/google-chrome`), so CI downloads no browser and installs no system packages; the
+`playwright install --with-deps` apt step it replaced stalled some runs for up to ten minutes.
+The build job is capped at 15 minutes (8 for the smoke test) and the deploy job at 10, so a
+hung step fails fast instead of holding the Pages concurrency group.
+
 Only the deploy job holds `pages: write` and `id-token: write`; the build job, which runs
 `npm ci` and the test tooling, reads only. A push during a run waits for it rather than
 cancelling a deploy halfway. The repository's Pages source is set to "GitHub Actions";
