@@ -55,6 +55,23 @@ test('boots, renders WebGL and follows device orientation', async ({ page }) => 
   await expect(paused).toBeHidden();
   await expect(page.locator('#hud')).toBeVisible();
 
+  // Back from the level list returns to the run, so Menu is the only way from a run to the
+  // title and Endless; a broken button id or quit wiring would pass every other gate.
+  // Resume recalibrates first, and Escape does nothing until that ends.
+  await expect(page.locator('#screen-loading')).toBeHidden(slow);
+  await page.keyboard.press('Escape');
+  await expect(paused).toBeVisible();
+  await paused.getByRole('button', { name: 'Levels' }).click();
+  const levels = page.getByRole('dialog', { name: 'Levels' });
+  await expect(levels).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(paused).toBeVisible();
+  await paused.getByRole('button', { name: 'Menu' }).click();
+  await expect(page.getByRole('heading', { name: 'Tilt Maze' })).toBeVisible();
+  await page.getByRole('button', { name: 'Endless', exact: true }).click();
+  await expect(page.locator('#hint')).toHaveText('Tilt your phone to start', { timeout: 30_000 });
+  await expect(page.locator('#hud-level')).toHaveText(/^Endless #/);
+
   expect(errors).toEqual([]);
 });
 

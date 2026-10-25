@@ -14,6 +14,6 @@
 | `src/audio/sfx.js` | Synthesised sound and vibration |
 | `src/storage.js` | Versioned save data in localStorage |
 | `tests/unit/` | Vitest specs for the pure modules, small glue helpers and the Rapier world |
-| `tests/e2e/smoke.spec.js` | Playwright boot and sensor smoke test |
+| `tests/e2e/smoke.spec.js` | Playwright smoke tests: boot, tilt, pause, the route back to the title and Endless, and retry after a failed engine download |
 | `.github/workflows/deploy.yml` | CI gates and the Pages deploy |
 | `plans/` | Plans for past and future work |

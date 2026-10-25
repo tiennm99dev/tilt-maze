@@ -13,6 +13,11 @@ set the way they are, so a later change can be made on purpose.
   600 ms after the tap that asked for it (`TILT.calibrationLeadMs`): sampling at once caught
   the phone moving under the lifting thumb, so a resume could start a few degrees off level and
   roll the ball, and the "Hold your phone" prompt vanished before it could be read.
+  When sensors steer, every way into a level recalibrates first: the first start, Next and New
+  maze, Retry from the pause or win screen, and Resume. The previous maze ends with the phone
+  tilted toward the goal, and a stale neutral started the ball and the clock within about
+  100 ms, before the player had seen the new maze; the short "Hold your phone" wait is the
+  price. Keyboard and drag play skip the wait.
 - **Filter order:** smoothing (80 ms time constant, independent of frame rate), then a 2° radial
   dead zone, then a linear map from 25° of phone tilt to 15° of board tilt, then sensitivity
   and invert. The dead zone is rescaled so the output starts at zero at its edge instead of
@@ -103,9 +108,17 @@ is solved so the board, fully tilted, fills 97% of the half width (`RENDER.portr
 stays 64 px clear of the HUD and hint (`render/framing.js`, unit tested); landscape keeps the
 fixed margins, which leave no room below the board on a phone, so in landscape windows up to
 500 px tall and at least 7:4 wide the start hint moves into the empty strip left of the board;
-narrower landscape windows keep it at the bottom centre. The start and goal rings are unlit
+narrower landscape windows up to 500 px tall keep it at the bottom centre but tuck it under the
+board's near rim (smaller padding and text, 6 px from the bottom), because the board is flat
+while the hint shows and that strip is free. The start and goal rings are unlit
 and skip tone mapping: lit and emissive, ACES tone mapping washed the "green ring" out to near
 white.
+
+Pinch-zoom is allowed (the viewport has no `user-scalable=no`), because menus must be zoomable
+(WCAG 1.4.4) and iOS ignores the flag anyway. The board (`#stage`) has `touch-action: none`, so
+pinches and double-taps during play do not zoom, and the menu screens and HUD have
+`touch-action: manipulation`, so a quick double tap on a button does not zoom; a zoom carried
+into play is undone from a menu.
 
 ## Sound
 
