@@ -355,7 +355,9 @@ h2 {
   font-weight: 600;
   pointer-events: none;
   z-index: 6;
-  white-space: nowrap;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  text-align: center;
 }
 
 .toast {
@@ -442,10 +444,6 @@ h2 {
     font-size: 0.82rem;
   }
 
-  .level-long {
-    display: none;
-  }
-
   .level-short {
     display: inline;
   }
@@ -459,7 +457,8 @@ h2 {
     height: 40px;
   }
 
-  /* Labels stay for screen readers; a glyph marks the falls count. */
+  /* Labels and the full level name stay for screen readers; a glyph marks the falls count. */
+  .level-long,
   .pill-label {
     position: absolute;
     width: 1px;
@@ -469,7 +468,10 @@ h2 {
     white-space: nowrap;
   }
 
+  /* Browsers without alt text in content (iOS Safari before 17.4) drop the
+     second declaration and keep the plain glyph. */
   .falls::before {
+    content: '\2193';
     content: '\2193' / '';
     color: var(--muted);
     margin-right: 2px;
