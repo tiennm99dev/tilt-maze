@@ -50,6 +50,9 @@ body {
   padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
   background: rgba(10, 13, 20, 0.45);
   z-index: 10;
+  /* Menus stay pinch-zoomable (WCAG 1.4.4; iOS ignores a zoom lock anyway) but drop
+     double-tap zoom on quickly tapped buttons. The board blocks gestures itself. */
+  touch-action: manipulation;
 }
 
 .panel {
@@ -222,6 +225,8 @@ h2 {
     max(10px, env(safe-area-inset-left));
   pointer-events: none;
   z-index: 5;
+  /* Reaches the buttons through this wrapper: touch-action intersects ancestors. */
+  touch-action: manipulation;
 }
 
 .hud-stats,
@@ -340,6 +345,9 @@ h2 {
   border-radius: 50%;
   background: var(--panel);
   border: 2px solid rgba(255, 255, 255, 0.15);
+  /* Dot travel at full tilt: inner radius (20) minus dot radius (6), so the dot
+     touches the ring without crossing it. */
+  --travel: 14px;
 }
 
 .tilt-dot {
@@ -351,7 +359,7 @@ h2 {
   margin: -6px 0 0 -6px;
   border-radius: 50%;
   background: var(--accent);
-  transform: translate(var(--tx, 0px), var(--ty, 0px));
+  transform: translate(calc(var(--tx, 0) * var(--travel)), calc(var(--ty, 0) * var(--travel)));
 }
 
 .hint {
@@ -482,6 +490,7 @@ h2 {
   .tilt-indicator {
     width: 40px;
     height: 40px;
+    --travel: 12px;
   }
 
   /* Labels stay for screen readers; a glyph marks the falls count. */
@@ -516,6 +525,7 @@ h2 {
   .tilt-indicator {
     width: 34px;
     height: 34px;
+    --travel: 9px;
   }
 
   .pill {
@@ -529,8 +539,18 @@ h2 {
 }
 
 /* Short landscape phones (320 to 400 px tall): tighten the menu panels so the win
-   screen, with "New best!", fits without scrolling its buttons out of view. */
+   screen, with "New best!", fits without scrolling its buttons out of view, and the
+   title panel fits at 568x320 with the two-line start error still inside it. */
 @media (max-height: 400px) {
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 4px;
+  }
+
+  .tagline {
+    margin-bottom: 12px;
+  }
+
   .screen {
     padding-top: max(8px, env(safe-area-inset-top));
     padding-bottom: max(8px, env(safe-area-inset-bottom));
@@ -558,6 +578,18 @@ h2 {
 
   .btn.primary {
     padding: 12px;
+  }
+}
+
+/* Short landscape windows narrower than 7:4 have no free strip beside the board, so the
+   hint stays at the bottom centre but tucks under the near rim of the (still flat) board.
+   At exactly 7:4 the side-strip block below also matches and wins by coming later. */
+@media (orientation: landscape) and (max-height: 500px) and (max-aspect-ratio: 7/4) {
+  .hint {
+    bottom: max(6px, env(safe-area-inset-bottom));
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    border-radius: 14px;
   }
 }
 

@@ -88,9 +88,9 @@ export function createHud(actions) {
         lastTilt = key;
         indicator.dataset.pitch = pitch;
         indicator.dataset.roll = roll;
-        const r = 14 / TILT.boardMaxDeg;
-        dot.style.setProperty('--tx', `${(tilt.roll * r).toFixed(1)}px`);
-        dot.style.setProperty('--ty', `${(-tilt.pitch * r).toFixed(1)}px`);
+        // Unitless fraction of full tilt; the CSS scales it by the indicator's --travel.
+        dot.style.setProperty('--tx', (tilt.roll / TILT.boardMaxDeg).toFixed(3));
+        dot.style.setProperty('--ty', (-tilt.pitch / TILT.boardMaxDeg).toFixed(3));
       }
     },
   };

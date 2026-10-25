@@ -97,8 +97,13 @@ export function createScreens(actions) {
       for (const key of SCREENS) screens[key].hidden = key !== name;
       // Skip hidden buttons too: the last level's win screen hides Next. A screen
       // with no button (loading) focuses its panel, so focus stays in the dialog.
+      // The level list opens on the level to play next, or on the highest
+      // unlocked one once all of those are cleared; only that screen has .level-btn.
+      const levelBtns = name ? screens[name].querySelectorAll('.level-btn:not([disabled])') : [];
       const focusTarget = name
-        ? (screens[name].querySelector('button:not([disabled]):not([hidden])') ??
+        ? (screens[name].querySelector('.level-btn.next') ??
+          levelBtns[levelBtns.length - 1] ??
+          screens[name].querySelector('button:not([disabled]):not([hidden])') ??
           screens[name].querySelector('.panel[tabindex]'))
         : null;
       if (focusTarget instanceof HTMLElement) focusTarget.focus({ preventScroll: true });
