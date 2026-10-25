@@ -137,9 +137,13 @@ export function createStage(canvas) {
   // Phones drop the WebGL context of a backgrounded tab. three rebuilds its
   // own state on restore but not the contents of render targets, so the
   // reflections are rebuilt here, and the canvas is redrawn because the
-  // game loop is idle behind menus and the pause screen.
+  // game loop is idle behind menus and the pause screen. The old target is
+  // not disposed: its GPU objects died with the context, and its dispose
+  // listener belongs to three's pre-restore textures module, so disposing it
+  // would only send deletes for dead handles, which WebGL warns about as
+  // "object does not belong to this context". Nothing references it once
+  // scene.environment points at the new target.
   const onRestored = () => {
-    envTarget.dispose();
     envTarget = buildEnv();
     scene.environment = envTarget.texture;
     render();
