@@ -113,7 +113,8 @@ function startGame({ RAPIER, stage, sensors, fsm, sfx, settings, savedNeutral, c
   /** @param {import('../level/levels.js').Level} level */
   const load = (level) => {
     world?.dispose();
-    meshes?.dispose();
+    const old = meshes;
+    old?.group.removeFromParent();
     pendingWin = null;
     layout = buildLayout(level, BOARD);
     world = new PhysicsWorld(RAPIER, layout, { radius: BOARD.ballRadius, start: layout.start });
@@ -125,9 +126,12 @@ function startGame({ RAPIER, stage, sensors, fsm, sfx, settings, savedNeutral, c
     input.reset();
     resetBall();
     meshes.ball.position.copy(currPos);
-    // Draw once now, behind the loading screen: the first draw compiles the
-    // shaders, which would otherwise stall the first frame of play.
+    // Draw once now. On the first load this compiles the shaders behind the
+    // loading screen, which would otherwise stall the first frame of play.
+    // Later loads reuse the cached programs, because the old materials are
+    // freed only after this draw has acquired them for the new ones.
     stage.render();
+    old?.dispose();
   };
 
   /** @returns {boolean} */
