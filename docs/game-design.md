@@ -73,8 +73,9 @@ set the way they are, so a later change can be made on purpose.
   hole has a free way round. Tests check that curve and pin a fingerprint of each layout, so a
   generator change cannot silently reshuffle the campaign. A simulated autopilot finished all
   ten campaign levels without falling.
-- Endless shows its seed in the level label (in hex), so a maze can be rebuilt with
-  `endlessLevel(seed)`.
+- Endless shows its seed (in hex) in the level label, the pause screen and the win screen, so a
+  maze can be rebuilt with `endlessLevel(seed)`. Up to 600 px wide the HUD pill shows only `∞`,
+  because the seed pushed the stats onto a second row; screen readers still get the full name.
 
 ## Falls and scoring
 
@@ -100,8 +101,9 @@ for the floor and one for the walls, pixel ratio capped at 2, and no post-proces
 frame cheap on mid-range phones. In portrait the width limits the board, so the camera distance
 is solved so the board, fully tilted, fills 97% of the half width (`RENDER.portraitFitNdc`) and
 stays 64 px clear of the HUD and hint (`render/framing.js`, unit tested); landscape keeps the
-fixed margins. The start and goal rings are unlit and skip tone mapping: lit and emissive, ACES
-tone mapping washed the "green ring" out to near white.
+fixed margins, which leave no room below the board on a phone, so there the start hint moves
+into the empty strip left of the board. The start and goal rings are unlit and skip tone
+mapping: lit and emissive, ACES tone mapping washed the "green ring" out to near white.
 
 ## Sound
 

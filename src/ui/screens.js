@@ -78,6 +78,9 @@ export function createScreens(actions) {
   sensitivity.addEventListener('input', emitSettings);
   invert.addEventListener('change', emitSettings);
 
+  // The HUD holds the full name of the level in play, Endless seed included.
+  const hudLevel = byId('hud-level');
+  const pausedLevel = byId('paused-level');
   const titleError = byId('title-error');
   const loadingText = byId('loading-text');
   const toast = byId('toast');
@@ -87,6 +90,7 @@ export function createScreens(actions) {
   return {
     /** @param {ScreenName | null} name */
     show(name) {
+      if (name === 'paused') pausedLevel.textContent = hudLevel.textContent;
       for (const key of SCREENS) screens[key].hidden = key !== name;
       // Skip hidden buttons too: the last level's win screen hides Next.
       const focusTarget = name
@@ -163,6 +167,9 @@ export function createScreens(actions) {
       byId('win-title').textContent = title;
       byId('win-time').textContent = formatTime(timeMs);
       const parts = [`${falls} ${falls === 1 ? 'fall' : 'falls'}`];
+      // The seed lets a reported Endless maze be rebuilt.
+      const seed = /^Endless (#\w+)/.exec(hudLevel.textContent ?? '');
+      if (seed) parts.unshift(`seed ${seed[1]}`);
       if (bestMs !== null && !newBest) parts.push(`best ${formatTime(bestMs)}`);
       byId('win-details').textContent = parts.join(' · ');
       byId('win-best').hidden = !newBest;

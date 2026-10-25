@@ -58,7 +58,8 @@ export function createHud(actions) {
     setLevel(label) {
       level.textContent = label;
       // Narrow screens show the short form; screen readers get the full one.
-      levelShort.textContent = label.replace(/^Level /, 'Lv ').replace(/^Endless /, '∞ ');
+      // Endless drops its seed there, which the pause and win screens show.
+      levelShort.textContent = label.replace(/^Level /, 'Lv ').replace(/^Endless .*/, '∞');
     },
     /** @param {boolean} muted */
     setMuted(muted) {
