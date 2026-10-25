@@ -20,7 +20,7 @@ export const TRANSITIONS = Object.freeze({
   playing: ['paused', 'falling', 'won', 'calibrating'],
   falling: ['playing', 'paused'],
   paused: ['playing', 'falling', 'ready', 'calibrating', 'settings', 'levelSelect', 'title'],
-  won: ['ready', 'levelSelect', 'title'],
+  won: ['ready', 'calibrating', 'levelSelect', 'title'],
 });
 
 /**

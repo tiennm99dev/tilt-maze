@@ -36,6 +36,15 @@ describe('createStateMachine', () => {
     }
   });
 
+  it('recalibrates from a win before the next level', () => {
+    expect(TRANSITIONS.won).toContain('calibrating');
+    const fsm = createStateMachine();
+    for (const s of /** @type {const} */ (['permission', 'calibrating', 'ready', 'playing', 'won', 'calibrating', 'ready', 'playing', 'won', 'calibrating', 'paused'])) {
+      fsm.go(s);
+      expect(fsm.state).toBe(s);
+    }
+  });
+
   it('rejects transitions that are not allowed', () => {
     const fsm = createStateMachine();
     expect(fsm.can('playing')).toBe(false);

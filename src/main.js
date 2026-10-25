@@ -53,6 +53,8 @@ let gamePromise = null;
 /** @type {import('./level/levels.js').Level | null} */
 let currentLevel = null;
 let sensorsLive = false;
+// The no-sensors toast is shown once per page; later starts still re-probe.
+let sensorsToastShown = false;
 /** @type {GameState} */
 let pausedFrom = 'playing';
 /** @type {GameState} */
@@ -170,7 +172,8 @@ async function run(choice, access) {
   if (!sensorsLive) {
     screens.loading('Checking motion sensors…');
     sensorsLive = granted && (await sensors.probe(TILT.sensorProbeMs));
-    if (!sensorsLive) {
+    if (!sensorsLive && !sensorsToastShown) {
+      sensorsToastShown = true;
       screens.toast(
         granted
           ? 'No motion sensors here. Drag the board, or use the arrow keys or WASD and Space to jump.'
@@ -183,6 +186,24 @@ async function run(choice, access) {
   currentLevel = choice === 'endless' ? endlessLevel() : campaignLevel(choice);
   g.load(currentLevel);
   hud.setLevel(levelLabel(currentLevel));
+  await enterReady(g);
+}
+
+/**
+ * Hands a freshly loaded or retried level to the player. When sensors steer,
+ * it recalibrates first: the phone may still be tilted the way that rolled
+ * the last ball in, which would start the ball and the clock at once.
+ * Without sensors there is nothing to sample, so it skips the loading screen;
+ * the first start still passes through 'calibrating', the only way out of
+ * 'permission', where calibrate() returns at once.
+ * @param {import('./game/game.js').Game} g
+ */
+async function enterReady(g) {
+  if (!sensorsLive && fsm.can('ready')) {
+    g.resetClock();
+    fsm.go('ready');
+    return;
+  }
   fsm.go('calibrating');
   const ok = await calibrate(g);
   g.resetClock();
@@ -268,9 +289,8 @@ function loadAndReady(choice) {
   if (!game) return;
   currentLevel = choice === 'endless' ? endlessLevel() : campaignLevel(choice);
   game.load(currentLevel);
-  game.resetClock();
   hud.setLevel(levelLabel(currentLevel));
-  fsm.go('ready');
+  enterReady(game).catch((error) => console.error(error));
 }
 
 /** Leaves the level list for the screen that opened it. */
@@ -326,15 +346,19 @@ const screens = createScreens({
     fsm.go('levelSelect');
   },
   next: () => {
+    // Audio may have been suspended while the win screen was hidden.
+    sfx.resume();
     const id = currentLevel?.id;
     if (fsm.state !== 'won' || id === undefined) return;
     loadAndReady(id === 'endless' ? 'endless' : Math.min(id + 1, RULES.levelCount));
   },
   winRetry: () => {
+    sfx.resume();
     if (fsm.state !== 'won' || !game) return;
     game.retry();
-    game.resetClock();
-    fsm.go('ready');
+    // Recalibrate for the same reason Resume does: the neutral may not be a
+    // pose the player chose.
+    enterReady(game).catch((error) => console.error(error));
   },
   winLevels: () => {
     levelsReturn = 'won';
