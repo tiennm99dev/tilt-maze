@@ -24,6 +24,10 @@ nothing else needs configuring.
 The build uses a relative base (`./`), so the same output works on the Pages subpath and behind
 any proxy path.
 
+Rapier's physics engine ships as its own `.wasm` file in `assets/`. Pages serves it gzipped as
+`application/wasm`, which lets the browser compile it while it downloads. A host that sends
+another content type still works, but the game then waits for the whole file before compiling.
+
 Roll back with `git revert` on `main`; the next run redeploys the previous behaviour.
 
 ## Testing on a phone

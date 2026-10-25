@@ -39,9 +39,9 @@ const loadGameModule = () => {
   return gameModule;
 };
 /**
- * Rapier is a dynamic import inside the game chunk; asking for it here starts
- * its download alongside that chunk instead of after it has run. The game's
- * own `loadPhysics()` call then reuses the same promise.
+ * The game chunk loads Rapier (its JS and .wasm) through `loadPhysics()`;
+ * asking for it here starts that download alongside the chunk instead of
+ * after it has run. The game's own call then reuses the same promise.
  */
 const loadPhysicsEarly = () => import('./physics/world.js').then((m) => m.loadPhysics());
 const loadEngine = () => Promise.all([loadGameModule(), loadPhysicsEarly()]).then(([mod]) => mod);

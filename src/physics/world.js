@@ -9,26 +9,43 @@
  * Rapier does not wake a body when gravity changes.
  */
 
+// @ts-expect-error The wasm-bindgen glue ships without typings; RapierGlue below is its shape.
+import * as untypedGlue from '@dimforge/rapier3d/rapier_wasm3d_bg.js';
+import initRapierWasm from '@dimforge/rapier3d/rapier_wasm3d_bg.wasm?init';
 import { floorMesh } from '../level/layout.js';
 import { PHYSICS } from '../tuning.js';
 
-/** @typedef {typeof import('@dimforge/rapier3d-compat').default} Rapier */
+/** @typedef {typeof import('@dimforge/rapier3d/rapier.js').default} Rapier */
+
+/**
+ * The JS half of Rapier's wasm-bindgen output: the functions the
+ * WebAssembly module imports, and the setter that hands it the instance.
+ * @typedef {WebAssembly.ModuleImports & {__wbg_set_wasm(exports: WebAssembly.Exports): void}} RapierGlue
+ */
+const glue = /** @type {RapierGlue} */ (untypedGlue);
 
 /** @type {Promise<Rapier> | null} */
 let rapierPromise = null;
 
 /**
- * Downloads and initialises Rapier once. The compat build inlines its
- * WebAssembly, so this is one large lazy chunk.
+ * Downloads and initialises Rapier once. The .wasm is a separate file,
+ * fetched here (streamed and compiled as it arrives) while the JS API
+ * downloads in parallel. vite.config.js keeps the package from importing
+ * the .wasm itself, which would make a failed download permanent; this
+ * way a rejected promise is dropped and the next call fetches again.
  * @returns {Promise<Rapier>}
  */
 export function loadPhysics() {
   if (!rapierPromise) {
-    rapierPromise = import('@dimforge/rapier3d-compat')
-      .then(async (mod) => {
-        const RAPIER = mod.default;
-        await RAPIER.init();
-        return RAPIER;
+    rapierPromise = Promise.all([
+      import('@dimforge/rapier3d/rapier.js'),
+      initRapierWasm({ './rapier_wasm3d_bg.js': glue }),
+    ])
+      .then(([mod, instance]) => {
+        // Linked once the API module has run, so nothing the package does
+        // while loading can swap in another instance.
+        glue.__wbg_set_wasm(instance.exports);
+        return mod.default;
       })
       .catch((error) => {
         rapierPromise = null;

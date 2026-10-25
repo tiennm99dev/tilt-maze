@@ -13,5 +13,4 @@ These are intentions, not shipped behaviour.
 - A One Euro filter if tilt feels laggy.
 - Respawn at a checkpoint on the largest levels if they prove too punishing.
 - Offline play (PWA), if people want to play without a connection.
-- Questions still open from the plan: whether the ~1.7 MB physics download is acceptable on
-  mobile data, and whether flying off should happen more often.
+- Question still open from the plan: whether flying off should happen more often.
