@@ -88,7 +88,10 @@ export function createScreens(actions) {
     /** @param {ScreenName | null} name */
     show(name) {
       for (const key of SCREENS) screens[key].hidden = key !== name;
-      const focusTarget = name ? screens[name].querySelector('button:not([disabled])') : null;
+      // Skip hidden buttons too: the last level's win screen hides Next.
+      const focusTarget = name
+        ? screens[name].querySelector('button:not([disabled]):not([hidden])')
+        : null;
       if (focusTarget instanceof HTMLElement) focusTarget.focus({ preventScroll: true });
     },
     /** @param {string} text */

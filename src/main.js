@@ -182,9 +182,16 @@ async function run(choice, access) {
   g.load(currentLevel);
   hud.setLevel(levelLabel(currentLevel));
   fsm.go('calibrating');
-  await calibrate(g);
+  const ok = await calibrate(g);
   g.resetClock();
-  fsm.go('ready');
+  // Read the state afresh: it may have moved during the await.
+  if (/** @type {GameState} */ (fsm.state) !== 'calibrating') return;
+  if (ok) {
+    fsm.go('ready');
+  } else {
+    pausedFrom = 'ready';
+    fsm.go('paused');
+  }
 }
 
 /**
@@ -264,6 +271,16 @@ function loadAndReady(choice) {
   fsm.go('ready');
 }
 
+/** Leaves the level list for the title. */
+function closeLevels() {
+  if (fsm.can('title')) fsm.go('title');
+}
+
+/** Leaves settings for the screen that opened them. */
+function closeSettings() {
+  fsm.go(settingsReturn);
+}
+
 const screens = createScreens({
   play: () => startFromTap(Math.min(storage.get().unlocked, RULES.levelCount)),
   openLevels: () => {
@@ -275,10 +292,8 @@ const screens = createScreens({
     settingsReturn = 'title';
     fsm.go('settings');
   },
-  closeLevels: () => {
-    if (fsm.can('title')) fsm.go('title');
-  },
-  closeSettings: () => fsm.go(settingsReturn),
+  closeLevels,
+  closeSettings,
   pickLevel: (level) => startFromTap(level),
   changeSettings: (sensitivity, invert) => storage.update({ sensitivity, invert }),
   resume: () => {
@@ -364,11 +379,20 @@ fsm.onChange((to) => {
   }
 });
 
-// Desktop: Escape or P pauses and resumes.
+// Desktop: Escape or P pauses and resumes; Escape also closes the levels
+// and settings dialogs, like their Back buttons.
 window.addEventListener('keydown', (e) => {
-  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || isEditable(e.target)) return;
-  if (e.code !== 'Escape' && e.code !== 'KeyP') return;
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   const s = fsm.state;
+  // Checked before the form-field guard: settings holds only a slider and a
+  // checkbox, where Escape does nothing, so it closes even with one focused.
+  if (e.code === 'Escape' && (s === 'levelSelect' || s === 'settings')) {
+    e.preventDefault();
+    if (s === 'levelSelect') closeLevels();
+    else closeSettings();
+    return;
+  }
+  if (isEditable(e.target) || (e.code !== 'Escape' && e.code !== 'KeyP')) return;
   if (s === 'ready' || s === 'playing' || s === 'falling') {
     e.preventDefault();
     pause();
