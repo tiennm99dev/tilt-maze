@@ -27,6 +27,7 @@ const SCREENS = /** @type {const} */ (['title', 'levelSelect', 'settings', 'load
  * @property {() => void} next
  * @property {() => void} winRetry
  * @property {() => void} winLevels
+ * @property {() => void} quit
  */
 
 /**
@@ -52,6 +53,8 @@ export function createScreens(actions) {
     ['btn-next', actions.next],
     ['btn-win-retry', actions.winRetry],
     ['btn-win-levels', actions.winLevels],
+    ['btn-pause-menu', actions.quit],
+    ['btn-win-menu', actions.quit],
   ];
   for (const [id, fn] of clicks) byId(id).addEventListener('click', fn);
 
@@ -92,9 +95,11 @@ export function createScreens(actions) {
     show(name) {
       if (name === 'paused') pausedLevel.textContent = hudLevel.textContent;
       for (const key of SCREENS) screens[key].hidden = key !== name;
-      // Skip hidden buttons too: the last level's win screen hides Next.
+      // Skip hidden buttons too: the last level's win screen hides Next. A screen
+      // with no button (loading) focuses its panel, so focus stays in the dialog.
       const focusTarget = name
-        ? screens[name].querySelector('button:not([disabled]):not([hidden])')
+        ? (screens[name].querySelector('button:not([disabled]):not([hidden])') ??
+          screens[name].querySelector('.panel[tabindex]'))
         : null;
       if (focusTarget instanceof HTMLElement) focusTarget.focus({ preventScroll: true });
     },
@@ -131,7 +136,8 @@ export function createScreens(actions) {
           button.type = 'button';
           const cleared = Boolean(best[String(level)]);
           // The highest unlocked level not yet cleared is the one to play next.
-          button.className = level === unlocked && !cleared ? 'level-btn next' : 'level-btn';
+          const isNext = level === unlocked && !cleared;
+          button.className = isNext ? 'level-btn next' : 'level-btn';
           button.dataset.level = String(level);
           button.disabled = level > unlocked;
           const label = document.createElement('span');
@@ -139,7 +145,13 @@ export function createScreens(actions) {
           const sub = document.createElement('small');
           sub.textContent = level > unlocked ? 'locked' : cleared ? formatTime(best[String(level)]) : '—';
           button.append(label, sub);
-          button.setAttribute('aria-label', `Level ${level}${level > unlocked ? ' (locked)' : ''}`);
+          // The label replaces the content, so it carries the best time and the
+          // next marker, which is shown only as an outline.
+          const parts = [`Level ${level}`];
+          if (level > unlocked) parts.push('locked');
+          else if (cleared) parts.push(`best ${formatTime(best[String(level)])}`);
+          if (isNext) parts.push('next');
+          button.setAttribute('aria-label', parts.join(', '));
           return button;
         }),
       );
@@ -172,7 +184,10 @@ export function createScreens(actions) {
       if (seed) parts.unshift(`seed ${seed[1]}`);
       if (bestMs !== null && !newBest) parts.push(`best ${formatTime(bestMs)}`);
       byId('win-details').textContent = parts.join(' · ');
-      byId('win-best').hidden = !newBest;
+      // aria-describedby reads #win-best even when hidden, so clear its text too.
+      const best = byId('win-best');
+      best.hidden = !newBest;
+      best.textContent = newBest ? 'New best!' : '';
       const next = /** @type {HTMLButtonElement} */ (byId('btn-next'));
       next.hidden = !hasNext;
       next.textContent = nextLabel;

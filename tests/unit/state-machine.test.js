@@ -26,6 +26,16 @@ describe('createStateMachine', () => {
     expect(fsm.state).toBe('playing');
   });
 
+  it('returns from the level list to a paused run or a win', () => {
+    expect(TRANSITIONS.levelSelect).toContain('paused');
+    expect(TRANSITIONS.levelSelect).toContain('won');
+    const fsm = createStateMachine();
+    for (const s of /** @type {const} */ (['permission', 'calibrating', 'ready', 'playing', 'paused', 'levelSelect', 'paused', 'calibrating', 'playing', 'won', 'levelSelect', 'won'])) {
+      fsm.go(s);
+      expect(fsm.state).toBe(s);
+    }
+  });
+
   it('rejects transitions that are not allowed', () => {
     const fsm = createStateMachine();
     expect(fsm.can('playing')).toBe(false);

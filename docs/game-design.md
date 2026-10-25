@@ -23,8 +23,8 @@ set the way they are, so a later change can be made on purpose.
   disagreed about the sign of that angle, so `TILT.screenAngleSign` flips it in one place if a
   real device shows the ball rolling the wrong way. The neutral pose is kept in screen axes, so
   it stays valid after a rotation. A rotation during play pauses the game instead of
-  recalibrating: it is usually the OS reacting to a hard tilt, and the resume tap recalibrates
-  from a pose the player chose.
+  recalibrating: it is usually the OS reacting to a hard tilt, and the resume or retry tap
+  recalibrates from a pose the player chose.
 
 ## Shake and flying off
 
@@ -101,9 +101,11 @@ for the floor and one for the walls, pixel ratio capped at 2, and no post-proces
 frame cheap on mid-range phones. In portrait the width limits the board, so the camera distance
 is solved so the board, fully tilted, fills 97% of the half width (`RENDER.portraitFitNdc`) and
 stays 64 px clear of the HUD and hint (`render/framing.js`, unit tested); landscape keeps the
-fixed margins, which leave no room below the board on a phone, so there the start hint moves
-into the empty strip left of the board. The start and goal rings are unlit and skip tone
-mapping: lit and emissive, ACES tone mapping washed the "green ring" out to near white.
+fixed margins, which leave no room below the board on a phone, so in landscape windows up to
+500 px tall and at least 7:4 wide the start hint moves into the empty strip left of the board;
+narrower landscape windows keep it at the bottom centre. The start and goal rings are unlit
+and skip tone mapping: lit and emissive, ACES tone mapping washed the "green ring" out to near
+white.
 
 ## Sound
 

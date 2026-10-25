@@ -63,8 +63,8 @@ export function createHud(actions) {
     },
     /** @param {boolean} muted */
     setMuted(muted) {
+      // A toggle keeps its label; only the pressed state says whether it is muted.
       mute.setAttribute('aria-pressed', String(muted));
-      mute.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
     },
     /** @param {string | null} text */
     setHint(text) {

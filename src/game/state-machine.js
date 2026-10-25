@@ -12,7 +12,7 @@
 /** @type {Readonly<Record<GameState, readonly GameState[]>>} */
 export const TRANSITIONS = Object.freeze({
   title: ['levelSelect', 'settings', 'permission'],
-  levelSelect: ['title', 'permission'],
+  levelSelect: ['title', 'permission', 'paused', 'won'],
   settings: ['title', 'paused'],
   permission: ['calibrating', 'title'],
   calibrating: ['ready', 'playing', 'falling', 'paused'],

@@ -57,6 +57,8 @@ let sensorsLive = false;
 let pausedFrom = 'playing';
 /** @type {GameState} */
 let settingsReturn = 'title';
+/** @type {GameState} */
+let levelsReturn = 'title';
 /**
  * Counts page hides and screen rotations, so a calibration can tell the
  * phone was put away or turned mid-wait.
@@ -271,9 +273,16 @@ function loadAndReady(choice) {
   fsm.go('ready');
 }
 
-/** Leaves the level list for the title. */
+/** Leaves the level list for the screen that opened it. */
 function closeLevels() {
-  if (fsm.can('title')) fsm.go('title');
+  if (!fsm.can(levelsReturn)) return;
+  fsm.go(levelsReturn);
+  // 'won' has no screen of its own (it opens after the goal flash), so put
+  // the win screen, which still holds this result, back by hand.
+  if (levelsReturn === 'won') {
+    screens.show('won');
+    hud.setInert(true);
+  }
 }
 
 /** Leaves settings for the screen that opened them. */
@@ -285,6 +294,7 @@ const screens = createScreens({
   play: () => startFromTap(Math.min(storage.get().unlocked, RULES.levelCount)),
   openLevels: () => {
     sfx.unlock();
+    levelsReturn = 'title';
     fsm.go('levelSelect');
   },
   endless: () => startFromTap('endless'),
@@ -302,14 +312,19 @@ const screens = createScreens({
   retry: () => {
     if (fsm.state !== 'paused' || !game) return;
     game.retry();
-    game.resetClock();
-    fsm.go('ready');
+    // Recalibrate for the same reason Resume does: after a pause the neutral
+    // may not be a pose the player chose.
+    pausedFrom = 'ready';
+    resume().catch((error) => console.error(error));
   },
   pauseSettings: () => {
     settingsReturn = 'paused';
     fsm.go('settings');
   },
-  pauseLevels: () => fsm.go('levelSelect'),
+  pauseLevels: () => {
+    levelsReturn = 'paused';
+    fsm.go('levelSelect');
+  },
   next: () => {
     const id = currentLevel?.id;
     if (fsm.state !== 'won' || id === undefined) return;
@@ -321,7 +336,15 @@ const screens = createScreens({
     game.resetClock();
     fsm.go('ready');
   },
-  winLevels: () => fsm.go('levelSelect'),
+  winLevels: () => {
+    levelsReturn = 'won';
+    fsm.go('levelSelect');
+  },
+  // Back from the level list returns to the run, so this is the way out to
+  // the title (and Endless) from a pause or a win.
+  quit: () => {
+    if (fsm.state === 'paused' || fsm.state === 'won') fsm.go('title');
+  },
 });
 
 const hud = createHud({
@@ -356,6 +379,12 @@ fsm.onChange((to) => {
   // first wake lock request still has its user gesture.
   if (AWAKE_STATES.has(to)) wakeLock.enable();
   else wakeLock.disable();
+  // Fill the level grid before show() picks its focus target, so focus
+  // lands on a level rather than on Back.
+  if (to === 'levelSelect') {
+    const save = storage.get();
+    screens.renderLevels(save.unlocked, save.best);
+  }
   const screen = SCREEN_FOR_STATE[to] ?? null;
   screens.show(screen);
   // Keep Tab inside the open screen; the HUD stays visible behind pause.
@@ -365,10 +394,6 @@ fsm.onChange((to) => {
     hud.setHint(sensorsLive ? 'Tilt your phone to start' : 'Drag or press an arrow key to start');
   } else if (to !== 'playing' && to !== 'falling') {
     hud.setHint(null);
-  }
-  if (to === 'levelSelect') {
-    const save = storage.get();
-    screens.renderLevels(save.unlocked, save.best);
   }
   if (to === 'settings') {
     const save = storage.get();

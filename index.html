@@ -48,7 +48,7 @@
           <button id="btn-endless" class="btn" type="button">Endless</button>
           <button id="btn-settings" class="btn" type="button">Settings</button>
         </div>
-        <p id="title-error" class="error" hidden></p>
+        <p id="title-error" class="error" role="alert" hidden></p>
         <p class="small">No phone? Use the arrow keys or WASD, Space to jump, Esc to pause, or drag the board.</p>
       </div>
     </section>
@@ -77,9 +77,9 @@
     </section>
 
     <section id="screen-loading" class="screen" role="dialog" aria-modal="true" aria-labelledby="loading-text" hidden>
-      <div class="panel">
+      <div class="panel" tabindex="-1">
         <div class="spinner" aria-hidden="true"></div>
-        <p id="loading-text">Loading&hellip;</p>
+        <p id="loading-text" role="status">Loading&hellip;</p>
       </div>
     </section>
 
@@ -100,6 +100,7 @@
           <button id="btn-retry" class="btn" type="button">Retry</button>
           <button id="btn-pause-settings" class="btn" type="button">Settings</button>
           <button id="btn-pause-levels" class="btn" type="button">Levels</button>
+          <button id="btn-pause-menu" class="btn" type="button">Menu</button>
         </div>
       </div>
     </section>
@@ -117,11 +118,12 @@
         <h2 id="win-title">Level complete</h2>
         <p class="win-time" id="win-time">0:00.0</p>
         <p id="win-details" class="small"></p>
-        <p id="win-best" class="best" hidden>New best!</p>
+        <p id="win-best" class="best" hidden></p>
         <button id="btn-next" class="btn primary" type="button">Next level</button>
         <div class="row">
           <button id="btn-win-retry" class="btn" type="button">Retry</button>
           <button id="btn-win-levels" class="btn" type="button">Levels</button>
+          <button id="btn-win-menu" class="btn" type="button">Menu</button>
         </div>
       </div>
     </section>
