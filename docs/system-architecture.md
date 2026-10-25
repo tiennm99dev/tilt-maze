@@ -26,7 +26,8 @@ game/game.js ── render loop, fixed-step physics, falls and wins
   fallback (`fallback.test.js`) and the portrait framing solver (`render/framing.js`).
 - **`physics/world.js`** runs under Node too, so `physics.test.js` drives the real Rapier world
   on small hand-built boards (floor seams, shake height against the rim, wall tunnelling,
-  holes, respawn). `vitest.config.js` loads the same `rapierManualWasm` plugin as the build, and
+  holes, respawn). `vitest.config.js` loads the same `rapierManualWasm` plugin as the build (the
+  dev server excludes Rapier from dependency pre-bundling, so the plugin applies there too), and
   Vite's `.wasm?init` loader reads the Rapier `.wasm` from disk instead of fetching it.
 
 ## Decisions
@@ -37,7 +38,7 @@ game/game.js ── render loop, fixed-step physics, falls and wins
 | Rapier (`@dimforge/rapier3d`) | The only maintained JS engine with continuous collision detection, which stops a fast ball tunnelling through thin walls | cannon-es (no CCD, dormant), ammo.js (stale npm build), a hand-written solver (more to tune) |
 | Every Rapier call stays in `physics/world.js` | Rapier is 0.x and breaks between minors; an upgrade touches one file | |
 | Physics and drawing both build from `level/layout.js` boxes | What you see is exactly what the ball hits | |
-| The engine chunk loads lazily | The title screen paints at once; Three.js and Rapier (about 1.2 MB gzip, almost all of it the `.wasm`) download in parallel while the player reads it | |
+| The engine chunk loads lazily | The title screen paints at once; Three.js and Rapier (about 1.35 MB gzip, almost all of it Rapier's `.wasm`) download in parallel while the player reads it | |
 | Rapier's `.wasm` is a separate file that `physics/world.js` fetches and links itself | About 0.44 MB less to download than the base64 copy, and the browser compiles it while it streams in. A failed download only rejects the load, so the next tap fetches again; `vite.config.js` drops the package's own `.wasm` import to keep it that way | `@dimforge/rapier3d-compat` (base64 `.wasm` inside a 1.65 MB gzip JS chunk); `vite-plugin-wasm` or Vite's built-in `.wasm` import (a top-level await that leaves the module failed for good after one bad download) |
 | iOS permission, audio unlock and wake lock run inside the first tap, before any `await` | iOS refuses the motion permission once the gesture has been awaited away | |
 | Only the orientation permission decides sensor mode; motion only powers the shake | A refused motion prompt must not force drag mode when tilt works | |

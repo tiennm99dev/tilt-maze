@@ -57,3 +57,18 @@ test('boots, renders WebGL and follows device orientation', async ({ page }) => 
 
   expect(errors).toEqual([]);
 });
+
+test('a failed engine download leaves Play able to retry', async ({ page }) => {
+  // Blocked before the page loads, because the title screen preloads the engine.
+  await page.route('**/*.wasm', (route) => route.abort());
+  await page.goto('./');
+
+  const play = page.getByRole('button', { name: 'Play', exact: true });
+  await play.click();
+  await expect(page.locator('#title-error')).toContainText('Could not start the game', { timeout: 30_000 });
+
+  // The retry must fetch the .wasm again instead of reusing a failed module.
+  await page.unroute('**/*.wasm');
+  await play.click();
+  await expect(page.locator('#hint')).toBeVisible({ timeout: 30_000 });
+});
