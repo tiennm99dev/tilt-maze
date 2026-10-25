@@ -61,9 +61,11 @@ set the way they are, so a later change can be made on purpose.
 - Holes go on the shortest route (otherwise nobody meets them), never in the start cell, the
   cell after it, or the goal, and never in two neighbouring route cells. Route cells that an
   equally short way goes round are used only when no other cell is left, because such a hole
-  costs the player nothing. Each hole sits against a closed wall and leaves a lane 1.5 ball
-  diameters wide, so no hole forces a fall. Holes are square openings so what is drawn
-  matches what the ball falls through.
+  costs the player nothing. Among the costly cells the placer takes as many as the spacing
+  rule allows, skipping a random pick that would crowd out two others; plain shuffled
+  first-come picks fell one costly hole short on about one Endless maze in twenty. Each hole
+  sits against a closed wall and leaves a lane 1.5 ball diameters wide, so no hole forces a
+  fall. Holes are square openings so what is drawn matches what the ball falls through.
 - Holes are a fixed count per level, from none on level 1 to six on level 10 (`LEVELS.holes`).
   A per-route-cell density rounded to zero on short routes, which left level 2 without holes.
 - Campaign seeds were picked by search so the route length (15 cells on level 1 up to 49 on

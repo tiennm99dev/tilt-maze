@@ -135,25 +135,59 @@ export function placeHoles(maze, path, count, geo, rng) {
     throw new RangeError('Board geometry leaves no lane beside a hole');
   }
   if (count <= 0) return [];
-  // Skip the start cell, the cell after it and the goal cell.
+  // Skip the start cell, the cell after it and the goal cell, and crossroads,
+  // which have no room for a hole.
   const shuffled = rng.shuffle(path.slice(2, -1).map((cell, i) => ({ cell, index: i + 2 })));
+  const usable = shuffled.filter(({ cell }) => maze.open[cell] !== (N | E | S | W));
   // Cells an equally short route goes around cost the player nothing, so
   // they come last; the shuffled order stays within each group.
   const base = path.length - 1;
-  const forced = new Set(shuffled.filter(({ cell }) => distanceAvoiding(maze, cell) > base));
-  const candidates = [...forced, ...shuffled.filter((c) => !forced.has(c))];
+  const forced = new Set(usable.filter(({ cell }) => distanceAvoiding(maze, cell) > base));
+  const candidates = [...forced, ...usable.filter((c) => !forced.has(c))];
+  const forcedIndices = [...forced].map((c) => c.index).sort((a, b) => a - b);
   /** @type {Set<number>} */
   const usedIndices = new Set();
+  // As many forced cells as the spacing rule allows, capped at the count. A
+  // forced cell that would crowd out two others is skipped so the shuffle
+  // never costs a forced hole.
+  const target = Math.min(count, spacedCount(forcedIndices, usedIndices));
   /** @type {Hole[]} */
   const holes = [];
-  for (const { cell, index } of candidates) {
+  for (const candidate of candidates) {
     if (holes.length >= count) break;
+    const { cell, index } = candidate;
     // Never two holes in neighbouring route cells.
     if (usedIndices.has(index - 1) || usedIndices.has(index + 1)) continue;
+    if (forced.has(candidate) && holes.length < target) {
+      usedIndices.add(index);
+      const reachable = holes.length + 1 + spacedCount(forcedIndices, usedIndices);
+      usedIndices.delete(index);
+      if (reachable < target) continue;
+    }
     const hole = placeHoleInCell(maze.open[cell], cell, geo, rng.next);
     if (!hole) continue;
     usedIndices.add(index);
     holes.push(hole);
   }
   return holes;
+}
+
+/**
+ * Most route indices that can still take a hole, keeping every pick at least
+ * two apart and away from the used ones. Taking the leftmost free index each
+ * time is optimal along a line.
+ * @param {number[]} sortedIndices Ascending route indices.
+ * @param {Set<number>} usedIndices Indices that already hold a hole.
+ * @returns {number}
+ */
+function spacedCount(sortedIndices, usedIndices) {
+  let picked = 0;
+  let last = -Infinity;
+  for (const index of sortedIndices) {
+    if (usedIndices.has(index) || usedIndices.has(index - 1) || usedIndices.has(index + 1)) continue;
+    if (index - last < 2) continue;
+    picked += 1;
+    last = index;
+  }
+  return picked;
 }

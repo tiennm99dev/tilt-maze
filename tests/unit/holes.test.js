@@ -95,6 +95,33 @@ describe('placeHoles', () => {
     expect(checked).toBeGreaterThan(30);
   });
 
+  it('puts as many holes on costly cells as the spacing rule allows', () => {
+    for (const braid of [0.15, 0.3]) {
+      for (let seed = 1; seed <= 150; seed += 1) {
+        const maze = generateMaze({ cols: 11, rows: 11, seed, braid });
+        const path = solve(maze);
+        const costly = [];
+        for (let i = 2; i < path.length - 1; i += 1) {
+          const cell = path[i];
+          if (maze.open[cell] !== (N | E | S | W) && detour(maze, cell) > path.length) costly.push(i);
+        }
+        // Leftmost-first picks, two or more route steps apart, are the most a line allows.
+        let bound = 0;
+        let last = -Infinity;
+        for (const i of costly) {
+          if (i - last < 2) continue;
+          bound += 1;
+          last = i;
+        }
+        const costlyCells = new Set(costly.map((i) => path[i]));
+        for (const count of [2, 4, 6]) {
+          const holes = placeHoles(maze, path, count, geo, createRng(seed));
+          expect(holes.filter((h) => costlyCells.has(h.cell))).toHaveLength(Math.min(count, bound));
+        }
+      }
+    }
+  });
+
   it('places nothing when no holes are wanted', () => {
     const maze = generateMaze({ cols: 5, rows: 5, seed: 1 });
     expect(placeHoles(maze, solve(maze), 0, geo, createRng(1))).toEqual([]);
